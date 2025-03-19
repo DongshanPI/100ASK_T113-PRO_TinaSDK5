@@ -1,0 +1,1 @@
+LICHEE_KERN_VER:=5.10-origin
