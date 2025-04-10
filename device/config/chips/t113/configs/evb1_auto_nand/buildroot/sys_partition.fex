@@ -60,7 +60,7 @@ size = 252
 
 [partition]
     name         = rootfs
-    size         = 81900
+    size         = 191900
     downloadfile = "rootfs-ubifs.fex"
     user_type    = 0x8000
 
