@@ -1,0 +1,37 @@
+#!/bin/sh
+
+MODULE_NAME="xr829"
+MODULE_PATH="/lib/modules/5.4.61/xr829.ko"
+
+case "$1" in
+    start)
+        echo "Loading $MODULE_NAME module..."
+        if [ -f "$MODULE_PATH" ]; then
+            insmod "$MODULE_PATH"
+            if [ $? -eq 0 ]; then
+                echo "Loaded $MODULE_NAME successfully"
+            else
+                echo "Failed to load $MODULE_NAME"
+                exit 1
+            fi
+        else
+            echo "Module file not found: $MODULE_PATH"
+            exit 1
+        fi
+        ;;
+    stop)
+        echo "Unloading $MODULE_NAME module..."
+        rmmod $MODULE_NAME 2>/dev/null
+        ;;
+    restart|reload)
+        "$0" stop
+        sleep 1
+        "$0" start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac
+
+exit 0
