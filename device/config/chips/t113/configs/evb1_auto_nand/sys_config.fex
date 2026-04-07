@@ -193,8 +193,8 @@ twi_sda  = port:PC1<3><1><default><default>
 ;----------------------------------------------------------------------------------
 [uart_para]
 uart_debug_port = 3
-uart_debug_tx   = port:PG08<5><1><default><default>
-uart_debug_rx   = port:PG09<5><1><default><default>
+uart_debug_tx   = port:PB06<7><1><default><default>
+uart_debug_rx   = port:PB07<7><1><default><default>
 
 
 ;----------------------------------------------------------------------------------
