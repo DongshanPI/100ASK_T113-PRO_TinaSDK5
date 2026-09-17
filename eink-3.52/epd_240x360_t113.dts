@@ -1,0 +1,51 @@
+/* 100ASK 3.52-inch 240x360 monochrome EPD on the T113 9-pin SPI header.
+ * Merge these nodes into the board DTS; GPIO_ACTIVE_HIGH is provided by
+ * <dt-bindings/gpio/gpio.h> in the board's existing includes.
+ */
+
+&pio {
+	epd_spi1_pins: epd-spi1-pins {
+		pins = "PD10", "PD11", "PD12"; /* CS, SCK, MOSI */
+		function = "spi1";
+		drive-strength = <20>;
+		bias-disable;
+	};
+
+	epd_spi1_sleep_pins: epd-spi1-sleep-pins {
+		pins = "PD10", "PD11", "PD12";
+		function = "gpio_in";
+		drive-strength = <10>;
+		bias-disable;
+	};
+};
+
+&spi1 {
+	pinctrl-0 = <&epd_spi1_pins>;
+	pinctrl-1 = <&epd_spi1_sleep_pins>;
+	pinctrl-names = "default", "sleep";
+	spi_slave_mode = <0>;
+	spi1_cs_number = <1>;
+	spi1_cs_bitmap = <1>;
+	status = "okay";
+
+	epd_100ask@0 {
+		compatible = "100ask,epd-240x360";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		dc-gpios = <&pio 1 5 GPIO_ACTIVE_HIGH>;      /* PB5 */
+		busy-gpios = <&pio 3 22 GPIO_ACTIVE_HIGH>;  /* PD22; high is idle */
+		reset-gpios = <&pio 3 13 GPIO_ACTIVE_HIGH>; /* PD13 */
+		status = "okay";
+	};
+};
+
+/* PD10..PD13 and PB5 overlap the RGB LCD group; PD22 is LCD PWM. */
+&lcd0 {
+	status = "disabled";
+	lcd_used = <0>;
+	lcd_pwm_used = <0>;
+};
+
+&pwm7 {
+	status = "disabled";
+};
