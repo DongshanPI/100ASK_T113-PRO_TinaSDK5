@@ -18,6 +18,8 @@ E-Ink OS 桌面应用。
 - 系统概览、日历、TXT 阅读器、网络状态、资源监控、设备诊断、设置和关于页面
 - Wi-Fi 扫描、周期刷新和定期全刷
 - OpenWrt 软件包、开机自启动服务和墨水屏测试工具
+- 兼容未烧录 HUK 的非安全启动板，同时保留 Linux SMP 所需的 OP-TEE PSCI/SMC 服务
+- U-Boot 保留 3 秒串口中断窗口，便于无需物理按键执行 `efex` 恢复烧写
 
 ## 适用环境
 
@@ -209,6 +211,18 @@ dmesg | grep -Ei 'epd|spi|gpio'
 
 优先检查 BUSY 信号。PD22 在空闲状态应为高电平；随后检查 PD13 的高-低-高
 复位波形、PB5 的 DC 电平以及 PD11/PD12 的 SPI 时钟和数据波形。
+
+### 全擦除后停在 OP-TEE `Key 'huk' not found`
+
+本板的启动日志显示 `secure enable bit: 0`，出厂全擦除后可能没有预置 HUK；原厂
+OP-TEE 会在硬件信息检查阶段直接 panic。Linux 设备树又通过 PSCI/SMC 启动第二个
+CPU，因此不能简单删除 OP-TEE，否则内核会在 `psci: probing for conduit method`
+阶段崩溃。
+
+覆盖层提供了适用于本开发板的 `device/config/chips/t113/bin/optee_sun8iw20p1.bin`：
+它仅让非安全板跳过启动时的 HUK 硬件绑定检查，OP-TEE 及 PSCI/SMC 服务仍然保留。
+复制覆盖层后重新打包并执行全量烧录即可。不要把这个二进制用于已启用安全启动、
+需要 HUK 设备绑定或正式安全认证的产品。
 
 ### 屏幕内容方向或黑白颜色不正确
 
