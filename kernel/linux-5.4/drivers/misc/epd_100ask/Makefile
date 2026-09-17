@@ -1,0 +1,1 @@
+obj-$(CONFIG_EPD_100ASK_240X360) += epd_100ask_240x360.o

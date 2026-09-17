@@ -1,0 +1,6 @@
+config EPD_100ASK_240X360
+	tristate "100ASK 240x360 SPI EPD driver"
+	depends on SPI
+	depends on GPIOLIB
+	help
+	  100ASK 240x360 SPI e-paper display driver for Linux 5.4.

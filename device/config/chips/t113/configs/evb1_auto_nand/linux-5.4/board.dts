@@ -756,6 +756,21 @@
 		function = "io_disabled";
 		drive-strength = <10>;
 	};
+
+	/* 100ASK SPI-to-EPD adapter on the board's 9-pin SPI TFT header. */
+	epd_spi1_pins: epd-spi1-pins {
+		pins = "PD10", "PD11", "PD12"; /* CS, SCK, MOSI */
+		function = "spi1";
+		drive-strength = <20>;
+		bias-disable;
+	};
+
+	epd_spi1_sleep_pins: epd-spi1-sleep-pins {
+		pins = "PD10", "PD11", "PD12";
+		function = "gpio_in";
+		drive-strength = <10>;
+		bias-disable;
+	};
 };
 
 &uart0 {
@@ -900,7 +915,7 @@
                 ctp_int_port = <&pio PB 3 GPIO_ACTIVE_HIGH>;
                 ctp_wakeup = <&pio PB 2 GPIO_ACTIVE_HIGH>;
         };
-	
+
 };
 
 &twi3 {
@@ -965,22 +980,22 @@
 
 &spi1 {
 	clock-frequency = <100000000>;
-	pinctrl-0 = <&spi1_pins_a &spi1_pins_b>;
-	pinctrl-1 = <&spi1_pins_c>;
+	pinctrl-0 = <&epd_spi1_pins>;
+	pinctrl-1 = <&epd_spi1_sleep_pins>;
 	pinctrl-names = "default", "sleep";
 	spi_slave_mode = <0>;
 	spi1_cs_number = <1>;
 	spi1_cs_bitmap = <1>;
-	status = "disabled";
+	status = "okay";
 
-	spi_board1@0 {
-		device_type = "spi_board1";
-		compatible = "rohm,dh2228fv";
-		spi-max-frequency = <0x5f5e100>;
+	epd_100ask@0 {
+		compatible = "100ask,epd-240x360";
 		reg = <0x0>;
-		spi-rx-bus-width = <0x4>;
-		spi-tx-bus-width = <0x4>;
-		status = "disabled";
+		spi-max-frequency = <10000000>;
+		dc-gpios = <&pio 1 5 GPIO_ACTIVE_HIGH>;     /* PB5: DC_CTRL */
+		busy-gpios = <&pio 3 22 GPIO_ACTIVE_HIGH>; /* PD22: LCD_PWM */
+		reset-gpios = <&pio 3 13 GPIO_ACTIVE_HIGH>;/* PD13: SPI1_MISO */
+		status = "okay";
 	};
 };
 
@@ -1381,9 +1396,10 @@ pull up or pull down(default 0), driver level(default 1), data>
 ;For lvds0: use lvds0_pins_a  and lvds0_pins_b instead
 ;----------------------------------------------------------------------------------*/
 &lcd0 {
+		status              = "disabled";
 
         /* part 1 */
-        lcd_used            = <1>;
+		lcd_used            = <0>;
         lcd_driver_name     = "default_lcd";
         lcd_backlight       = <100>;
         /* part 2 */
@@ -1402,7 +1418,7 @@ pull up or pull down(default 0), driver level(default 1), data>
         lcd_vt              = <635>;
         lcd_vspw            = <3>;
 
-        lcd_pwm_used        = <1>;
+		lcd_pwm_used        = <0>;
         lcd_pwm_ch          = <7>;
         lcd_pwm_freq        = <500>;
         lcd_pwm_pol         = <1>;
@@ -1739,7 +1755,7 @@ tvd_row*tvd_column is the total tvd channel number to be used in multichannel mo
 	pinctrl-names = "active", "sleep";
 	pinctrl-0 = <&pwm7_pin_a>;
 	pinctrl-1 = <&pwm7_pin_b>;
-	status = "okay";
+	status = "disabled";
 };
 
 &gpadc {
