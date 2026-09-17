@@ -1,5 +1,6 @@
 #include "ui.h"
 
+#include "lunar.h"
 #include "lvgl.h"
 #include <stdio.h>
 #include <string.h>
@@ -7,572 +8,227 @@
 
 LV_FONT_DECLARE(font_cjk_16);
 
-static lv_style_t root_style;
-static lv_style_t text_style;
-static lv_style_t line_style;
-static lv_style_t card_style;
-static lv_style_t selected_style;
-static lv_style_t bar_bg_style;
-static lv_style_t bar_indic_style;
+static lv_style_t root_style, text_style, line_style, row_style, selected_style;
 
-static lv_obj_t *add_label(lv_obj_t *parent, const char *text, int x, int y,
-			   int width, const lv_font_t *font, lv_text_align_t align)
+static lv_obj_t *label(lv_obj_t *parent, const char *text, int x, int y, int width,
+		       const lv_font_t *font, lv_text_align_t align)
 {
-	lv_obj_t *label = lv_label_create(parent);
-
-	lv_obj_add_style(label, &text_style, 0);
-	lv_obj_set_style_text_font(label, font, 0);
-	lv_obj_set_pos(label, x, y);
-	lv_obj_set_width(label, width);
-	lv_obj_set_style_text_align(label, align, 0);
-	lv_label_set_long_mode(label, LV_LABEL_LONG_CLIP);
-	lv_label_set_text(label, text);
-	return label;
+	lv_obj_t *object = lv_label_create(parent);
+	lv_obj_add_style(object, &text_style, 0); lv_obj_set_style_text_font(object, font, 0);
+	lv_obj_set_pos(object, x, y); lv_obj_set_width(object, width);
+	lv_obj_set_style_text_align(object, align, 0); lv_label_set_long_mode(object, LV_LABEL_LONG_CLIP);
+	lv_label_set_text(object, text); return object;
 }
 
-static void add_rule(lv_obj_t *parent, int y)
+static void rule(lv_obj_t *parent, int y)
 {
-	lv_obj_t *line = lv_obj_create(parent);
-
-	lv_obj_add_style(line, &line_style, 0);
-	lv_obj_set_pos(line, 8, y);
-	lv_obj_set_size(line, 224, 1);
+	lv_obj_t *object = lv_obj_create(parent); lv_obj_add_style(object, &line_style, 0);
+	lv_obj_set_pos(object, 8, y); lv_obj_set_size(object, 224, 1);
 }
 
-static void add_header(lv_obj_t *screen, const char *title,
-		       const struct system_stats *stats)
+static void header(lv_obj_t *screen, const char *title, const struct eink_connect_status *connect)
 {
-	char status[32];
-	char time_text[8];
-	time_t now = time(NULL);
-	struct tm tm_value;
-
-	localtime_r(&now, &tm_value);
-	if (stats->time_synchronized)
-		strftime(time_text, sizeof(time_text), "%H:%M", &tm_value);
-	else
-		strcpy(time_text, "--:--");
-	snprintf(status, sizeof(status), "%s %s",
-		 stats->network_online ? "NET" : "OFF", time_text);
-	add_label(screen, title, 8, 6, 132, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
-	add_label(screen, status, 140, 7, 92, &lv_font_montserrat_14,
-		  LV_TEXT_ALIGN_RIGHT);
-	add_rule(screen, 31);
+	char status[32]; time_t now = time(NULL); struct tm value; char clock[8];
+	localtime_r(&now, &value); strftime(clock, sizeof(clock), "%H:%M", &value);
+	snprintf(status, sizeof(status), "%s  W%c B%c", clock,
+		 connect->wifi_connected ? '+' : '-', connect->bt_state >= EINK_BT_ON ? '+' : '-');
+	label(screen, title, 8, 6, 130, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
+	label(screen, status, 138, 7, 94, &lv_font_montserrat_14, LV_TEXT_ALIGN_RIGHT); rule(screen, 31);
 }
 
-static void add_footer(lv_obj_t *screen, enum desktop_screen current,
-		       enum dashboard_language language,
-		       const struct reader_state *reader)
+static void footer(lv_obj_t *screen, const char *text)
 {
-	const char *text;
-
-	add_rule(screen, 328);
-	if (current == DESKTOP_LAUNCHER)
-		text = language == DASH_LANG_EN ?
-			"< > SELECT  OK OPEN  HOLD:LANG" :
-			"< > 选择  OK 打开  长按:语言";
-	else if (current == DESKTOP_CALENDAR)
-		text = language == DASH_LANG_EN ?
-			"< > MONTH  OK TODAY  HOLD:BACK" :
-			"< > 月份  OK 今天  长按:返回";
-	else if (current == DESKTOP_READER && reader->opened)
-		text = language == DASH_LANG_EN ?
-			"< > PAGE  OK LIBRARY  HOLD:BACK" :
-			"< > 翻页  OK 书库  长按:返回";
-	else if (current == DESKTOP_READER)
-		text = language == DASH_LANG_EN ?
-			"< > SELECT  OK READ  HOLD:BACK" :
-			"< > 选择  OK 阅读  长按:返回";
-	else if (current == DESKTOP_NETWORK)
-		text = language == DASH_LANG_EN ?
-			"< > APPS  OK SCAN  HOLD:BACK" :
-			"< > 应用  OK 扫描  长按:返回";
-	else if (current == DESKTOP_SETTINGS)
-		text = language == DASH_LANG_EN ?
-			"< > SELECT  OK CHANGE  HOLD:BACK" :
-			"< > 选择  OK 修改  长按:返回";
-	else
-		text = language == DASH_LANG_EN ?
-			"< > APPS  OK REFRESH  HOLD:BACK" :
-			"< > 切换  OK 刷新  长按:返回";
-	add_label(screen, text, 5, 336, 230, &font_cjk_16, LV_TEXT_ALIGN_CENTER);
+	rule(screen, 329); label(screen, text, 4, 337, 232, &font_cjk_16, LV_TEXT_ALIGN_CENTER);
 }
 
-static void add_tile(lv_obj_t *screen, int x, int y, const char *mark,
-		     const char *title, int selected)
+static void menu_row(lv_obj_t *screen, int y, const char *name, const char *value, int selected)
 {
-	lv_obj_t *tile = lv_obj_create(screen);
-	lv_obj_t *label;
-
-	lv_obj_add_style(tile, selected ? &selected_style : &card_style, 0);
-	lv_obj_set_pos(tile, x, y);
-	lv_obj_set_size(tile, 108, 62);
-	lv_obj_clear_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
-	label = add_label(tile, mark, 4, 5, 98, &lv_font_montserrat_16,
-			  LV_TEXT_ALIGN_CENTER);
-	if (selected)
-		lv_obj_set_style_text_color(label, lv_color_white(), 0);
-	label = add_label(tile, title, 4, 32, 98, &font_cjk_16,
-			  LV_TEXT_ALIGN_CENTER);
-	if (selected)
-		lv_obj_set_style_text_color(label, lv_color_white(), 0);
+	lv_obj_t *row = lv_obj_create(screen), *left, *right;
+	lv_obj_add_style(row, selected ? &selected_style : &row_style, 0);
+	lv_obj_set_pos(row, 8, y); lv_obj_set_size(row, 224, 43); lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+	left = label(row, name, 9, 12, value ? 130 : 206, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
+	if (selected) lv_obj_set_style_text_color(left, lv_color_white(), 0);
+	if (value) { right = label(row, value, 139, 12, 76, &font_cjk_16, LV_TEXT_ALIGN_RIGHT); if (selected) lv_obj_set_style_text_color(right, lv_color_white(), 0); }
 }
 
-static void render_launcher(lv_obj_t *screen, unsigned int selection,
-			    enum dashboard_language language)
+static void render_home(lv_obj_t *screen, unsigned int selection,
+			const struct dashboard_settings *settings,
+			const struct eink_connect_status *connect,
+			enum eink_time_quality quality)
 {
-	static const char *marks[] = {"01", "02", "03", "04", "05", "06", "07", "08"};
-	static const char *titles_zh[] = {"系统概览", "日历", "阅读器", "网络状态",
-					  "系统资源", "设备诊断", "系统设置", "关于系统"};
-	static const char *titles_en[] = {"OVERVIEW", "CALENDAR", "READER", "NETWORK",
-					  "RESOURCES", "DIAGNOSTICS", "SETTINGS", "ABOUT"};
-	unsigned int i;
-
-	selection %= DESKTOP_APP_COUNT;
-	for (i = 0; i < DESKTOP_APP_COUNT; i++) {
-		int x = (i & 1) ? 124 : 8;
-		int y = 39 + (int)(i / 2) * 70;
-
-		add_tile(screen, x, y, marks[i],
-			 language == DASH_LANG_EN ? titles_en[i] : titles_zh[i],
-			 i == selection);
-	}
+	static const char *zh[] = {"日历", "阅读", "连接", "更多"};
+	static const char *en[] = {"CALENDAR", "READER", "CONNECT", "MORE"};
+	static const char *week_zh[] = {"星期日","星期一","星期二","星期三","星期四","星期五","星期六"};
+	char clock[8], month[32], day[4], detail[80], status[32], lunar_text[64];
+	struct lunar_date lunar; time_t now = time(NULL); struct tm value; unsigned int i;
+	localtime_r(&now, &value); strftime(clock, sizeof(clock), "%H:%M", &value);
+	snprintf(status, sizeof(status), "WiFi%c  BT%c", connect->wifi_connected ? '+' : '-', connect->bt_state >= EINK_BT_ON ? '+' : '-');
+	label(screen, clock, 8, 7, 110, &lv_font_montserrat_28, LV_TEXT_ALIGN_LEFT);
+	label(screen, status, 120, 14, 112, &lv_font_montserrat_14, LV_TEXT_ALIGN_RIGHT);
+	snprintf(day, sizeof(day), "%d", value.tm_mday); label(screen, day, 8, 52, 72, &lv_font_montserrat_48, LV_TEXT_ALIGN_LEFT);
+	if (settings->language == DASH_LANG_EN) strftime(month, sizeof(month), "%B %Y", &value);
+	else snprintf(month, sizeof(month), "%d年%d月", value.tm_year + 1900, value.tm_mon + 1);
+	label(screen, month, 82, 61, 150, settings->language == DASH_LANG_EN ? &lv_font_montserrat_20 : &font_cjk_16, LV_TEXT_ALIGN_RIGHT);
+	if (!lunar_from_solar(value.tm_year + 1900, value.tm_mon + 1, value.tm_mday, &lunar)) lunar_format(&lunar, lunar_text, sizeof(lunar_text)); else strcpy(lunar_text, "农历--");
+	if (settings->language == DASH_LANG_EN) strftime(detail, sizeof(detail), "%A  %Y-%m-%d", &value);
+	else snprintf(detail, sizeof(detail), "%s    %s", week_zh[value.tm_wday], lunar_text);
+	label(screen, detail, 8, 112, 224, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
+	if (quality != EINK_TIME_ACCURATE) label(screen, quality == EINK_TIME_RESTORED ? "等待网络校时" : "时间未设置", 8, 137, 224, &font_cjk_16, LV_TEXT_ALIGN_RIGHT);
+	rule(screen, 163);
+	for (i = 0; i < HOME_ITEM_COUNT; i++) menu_row(screen, 171 + (int)i * 39, settings->language == DASH_LANG_EN ? en[i] : zh[i], NULL, i == selection);
+	footer(screen, settings->language == DASH_LANG_EN ? "K1/K3 SELECT  K2 OPEN  HOLD:LANG" : "K1/K3 选择  K2 打开  长按切换语言");
 }
 
-static int is_leap_year(int year)
+static int leap_year(int year) { return (!(year % 4) && year % 100) || !(year % 400); }
+static int month_days(int year, int month) { static const int days[] = {31,28,31,30,31,30,31,31,30,31,30,31}; return days[month] + (month == 1 && leap_year(year)); }
+
+static void render_calendar(lv_obj_t *screen, int offset, enum dashboard_language language)
 {
-	return (!(year % 4) && year % 100) || !(year % 400);
-}
-
-static int days_in_month(int year, int month)
-{
-	static const int days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-
-	return month == 1 ? days[month] + is_leap_year(year) : days[month];
-}
-
-static void render_calendar(lv_obj_t *screen, enum dashboard_language language,
-			    int month_offset)
-{
-	static const char *week_zh[] = {"日", "一", "二", "三", "四", "五", "六"};
-	static const char *week_en[] = {"S", "M", "T", "W", "T", "F", "S"};
-	char title[48], day_text[12];
-	time_t now = time(NULL);
-	struct tm today, shown;
-	int year, month, first_weekday, count, day, column, row;
-
-	localtime_r(&now, &today);
-	shown = today;
-	shown.tm_mday = 1;
-	shown.tm_mon += month_offset;
-	mktime(&shown);
-	year = shown.tm_year + 1900;
-	month = shown.tm_mon;
-	first_weekday = shown.tm_wday;
-	count = days_in_month(year, month);
-	if (language == DASH_LANG_EN)
-		strftime(title, sizeof(title), "%B %Y", &shown);
-	else
-		snprintf(title, sizeof(title), "%04d年%02d月", year, month + 1);
-	add_label(screen, title, 8, 40, 224,
-		  language == DASH_LANG_EN ? &lv_font_montserrat_20 : &font_cjk_16,
-		  LV_TEXT_ALIGN_CENTER);
-	for (column = 0; column < 7; column++)
-		add_label(screen, language == DASH_LANG_EN ? week_en[column] : week_zh[column],
-			  9 + column * 32, 72, 30, &font_cjk_16, LV_TEXT_ALIGN_CENTER);
-	add_rule(screen, 94);
+	static const char *week[] = {"日","一","二","三","四","五","六"};
+	time_t now = time(NULL); struct tm today, shown; char title[40], text[16], lunar_text[64];
+	struct lunar_date lunar; int year, month, count, day, column, row;
+	localtime_r(&now, &today); shown = today; shown.tm_mday = 1; shown.tm_mon += offset; mktime(&shown);
+	year = shown.tm_year + 1900; month = shown.tm_mon; count = month_days(year, month);
+	snprintf(title, sizeof(title), language == DASH_LANG_EN ? "%04d / %02d" : "%04d年%02d月", year, month + 1);
+	label(screen, title, 8, 42, 224, language == DASH_LANG_EN ? &lv_font_montserrat_20 : &font_cjk_16, LV_TEXT_ALIGN_CENTER);
+	for (column = 0; column < 7; column++) label(screen, week[column], 9 + column * 32, 73, 30, &font_cjk_16, LV_TEXT_ALIGN_CENTER);
+	rule(screen, 95);
 	for (day = 1; day <= count; day++) {
-		lv_obj_t *label;
-		int is_today;
-
-		column = (first_weekday + day - 1) % 7;
-		row = (first_weekday + day - 1) / 7;
-		is_today = !month_offset && day == today.tm_mday;
-		snprintf(day_text, sizeof(day_text), "%u", (unsigned int)day);
-		if (is_today) {
-			lv_obj_t *box = lv_obj_create(screen);
-
-			lv_obj_add_style(box, &selected_style, 0);
-			lv_obj_set_pos(box, 11 + column * 32, 101 + row * 36);
-			lv_obj_set_size(box, 27, 29);
-			lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
-			label = add_label(box, day_text, 0, 6, 25, &lv_font_montserrat_14,
-					  LV_TEXT_ALIGN_CENTER);
-			lv_obj_set_style_text_color(label, lv_color_white(), 0);
-		} else {
-			add_label(screen, day_text, 10 + column * 32, 108 + row * 36,
-				  28, &lv_font_montserrat_14, LV_TEXT_ALIGN_CENTER);
-		}
+		lv_obj_t *day_label; int selected = !offset && day == today.tm_mday;
+		column = (shown.tm_wday + day - 1) % 7; row = (shown.tm_wday + day - 1) / 7; snprintf(text, sizeof(text), "%d", day);
+		if (selected) {
+			lv_obj_t *box = lv_obj_create(screen); lv_obj_add_style(box, &selected_style, 0); lv_obj_set_pos(box, 11 + column * 32, 102 + row * 34); lv_obj_set_size(box, 27, 27);
+			day_label = label(box, text, 0, 6, 25, &lv_font_montserrat_14, LV_TEXT_ALIGN_CENTER); lv_obj_set_style_text_color(day_label, lv_color_white(), 0);
+		} else label(screen, text, 10 + column * 32, 108 + row * 34, 28, &lv_font_montserrat_14, LV_TEXT_ALIGN_CENTER);
+	}
+	if (!lunar_from_solar(today.tm_year + 1900, today.tm_mon + 1, today.tm_mday, &lunar)) {
+		const char *holiday = calendar_holiday(today.tm_year + 1900, today.tm_mon + 1, today.tm_mday, &lunar);
+		lunar_format(&lunar, lunar_text, sizeof(lunar_text)); if (holiday) { strncat(lunar_text, " · ", sizeof(lunar_text) - strlen(lunar_text) - 1); strncat(lunar_text, holiday, sizeof(lunar_text) - strlen(lunar_text) - 1); }
+		label(screen, lunar_text, 8, 303, 224, &font_cjk_16, LV_TEXT_ALIGN_CENTER);
 	}
 }
 
-static void format_uptime(char *buffer, size_t size, double seconds,
-			  enum dashboard_language language)
-{
-	unsigned int days = (unsigned int)seconds / 86400;
-	unsigned int hours = ((unsigned int)seconds / 3600) % 24;
-	unsigned int minutes = ((unsigned int)seconds / 60) % 60;
-
-	if (language == DASH_LANG_EN)
-		snprintf(buffer, size, "%ud %02uh %02um", days, hours, minutes);
-	else
-		snprintf(buffer, size, "%u天 %02u时 %02u分", days, hours, minutes);
-}
-
-static void render_overview(lv_obj_t *screen, enum dashboard_language language,
-			    const struct system_stats *stats)
-{
-	char time_text[16], date_text[80], uptime[48], row[128];
-	time_t now = time(NULL);
-	struct tm tm_value;
-	static const char *week_zh[] = {"日", "一", "二", "三", "四", "五", "六"};
-
-	localtime_r(&now, &tm_value);
-	strftime(time_text, sizeof(time_text), "%H:%M", &tm_value);
-	if (!stats->time_synchronized)
-		strcpy(time_text, "--:--");
-	if (language == DASH_LANG_EN)
-		strftime(date_text, sizeof(date_text), "%Y-%m-%d  %A", &tm_value);
-	else
-		snprintf(date_text, sizeof(date_text), "%04d年%02d月%02d日  星期%s",
-			 tm_value.tm_year + 1900, tm_value.tm_mon + 1, tm_value.tm_mday,
-			 week_zh[tm_value.tm_wday]);
-
-	add_label(screen, time_text, 10, 42, 220, &lv_font_montserrat_36,
-		  LV_TEXT_ALIGN_CENTER);
-	add_label(screen, date_text, 8, 90, 224, &font_cjk_16, LV_TEXT_ALIGN_CENTER);
-	add_rule(screen, 120);
-	format_uptime(uptime, sizeof(uptime), stats->uptime_sec, language);
-	snprintf(row, sizeof(row), "%s\n%s",
-		 language == DASH_LANG_EN ? "UPTIME" : "运行时间", uptime);
-	add_label(screen, row, 12, 137, 216, &font_cjk_16, LV_TEXT_ALIGN_CENTER);
-	snprintf(row, sizeof(row), "%s\n%s  %s",
-		 language == DASH_LANG_EN ? "NETWORK" : "网络状态",
-		 stats->network_online ? stats->interface : "--",
-		 stats->network_online ? stats->ip_address :
-		 (language == DASH_LANG_EN ? "OFFLINE" : "未连接"));
-	add_label(screen, row, 12, 215, 216, &font_cjk_16, LV_TEXT_ALIGN_CENTER);
-}
-
-static void add_metric(lv_obj_t *screen, int y, const char *name,
-		       const char *value, unsigned int percent)
-{
-	lv_obj_t *bar;
-
-	add_label(screen, name, 10, y, 92, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
-	add_label(screen, value, 105, y, 125, &font_cjk_16, LV_TEXT_ALIGN_RIGHT);
-	bar = lv_bar_create(screen);
-	lv_obj_add_style(bar, &bar_bg_style, LV_PART_MAIN);
-	lv_obj_add_style(bar, &bar_indic_style, LV_PART_INDICATOR);
-	lv_obj_set_pos(bar, 10, y + 24);
-	lv_obj_set_size(bar, 220, 12);
-	lv_bar_set_range(bar, 0, 100);
-	lv_bar_set_value(bar, percent > 100 ? 100 : percent, LV_ANIM_OFF);
-}
-
-static void render_resources(lv_obj_t *screen, enum dashboard_language language,
-			     const struct system_stats *stats)
-{
-	char value[64];
-	unsigned int memory_percent = 0, storage_percent = 0;
-
-	if (stats->memory_total_kb)
-		memory_percent = (unsigned int)((stats->memory_total_kb -
-			stats->memory_available_kb) * 100 / stats->memory_total_kb);
-	if (stats->storage_total_kb)
-		storage_percent = (unsigned int)((stats->storage_total_kb -
-			stats->storage_available_kb) * 100 / stats->storage_total_kb);
-
-	snprintf(value, sizeof(value), "%u%%  L %.2f", stats->cpu_percent,
-		 stats->load_average);
-	add_metric(screen, 48, language == DASH_LANG_EN ? "CPU" : "处理器",
-		   value, stats->cpu_percent);
-	snprintf(value, sizeof(value), "%llu/%llu MB",
-		 (unsigned long long)(stats->memory_total_kb - stats->memory_available_kb) / 1024,
-		 (unsigned long long)stats->memory_total_kb / 1024);
-	add_metric(screen, 111, language == DASH_LANG_EN ? "MEMORY" : "内存",
-		   value, memory_percent);
-	snprintf(value, sizeof(value), "%llu/%llu MB",
-		 (unsigned long long)(stats->storage_total_kb - stats->storage_available_kb) / 1024,
-		 (unsigned long long)stats->storage_total_kb / 1024);
-	add_metric(screen, 174, language == DASH_LANG_EN ? "STORAGE" : "存储",
-		   value, storage_percent);
-	if (stats->temperature_millic >= 0)
-		snprintf(value, sizeof(value), "%.1f C", stats->temperature_millic / 1000.0);
-	else
-		strcpy(value, "--");
-	add_label(screen, language == DASH_LANG_EN ? "TEMPERATURE" : "温度",
-		  10, 251, 130, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
-	add_label(screen, value, 140, 251, 90, &font_cjk_16, LV_TEXT_ALIGN_RIGHT);
-}
-
-static void add_info_row(lv_obj_t *screen, int y, const char *name, const char *value)
-{
-	add_label(screen, name, 10, y, 82, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
-	add_label(screen, value, 92, y, 138, &font_cjk_16, LV_TEXT_ALIGN_RIGHT);
-	add_rule(screen, y + 27);
-}
-
-static void render_reader(lv_obj_t *screen, enum dashboard_language language,
-			  const struct reader_state *reader)
+static void render_reader(lv_obj_t *screen, const struct reader_state *reader, enum dashboard_language language)
 {
 	if (reader->opened) {
-		char page_number[32];
-		lv_obj_t *content;
-
-		add_label(screen, reader->files[reader->current_file].name, 9, 39, 170,
-			  &font_cjk_16, LV_TEXT_ALIGN_LEFT);
-		snprintf(page_number, sizeof(page_number), "%u", reader->page_index + 1);
-		add_label(screen, page_number, 180, 39, 50, &font_cjk_16,
-			  LV_TEXT_ALIGN_RIGHT);
-		add_rule(screen, 63);
-		content = add_label(screen, reader->page[0] ? reader->page : "--", 9, 70,
-				    222, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
-		lv_label_set_long_mode(content, LV_LABEL_LONG_WRAP);
-		lv_obj_set_height(content, 248);
+		char page[24]; lv_obj_t *content; unsigned int i;
+		label(screen, reader->files[reader->current_file].name, 8, 39, 174, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
+		snprintf(page, sizeof(page), "%u%s", reader->page_index + 1, reader->bookmark_set && reader->bookmark_offset == reader->page_offsets[reader->page_index] ? " *" : "");
+		label(screen, page, 184, 39, 47, &lv_font_montserrat_14, LV_TEXT_ALIGN_RIGHT); rule(screen, 63);
+		content = label(screen, reader->page[0] ? reader->page : "--", 9, 69, 222, &font_cjk_16, LV_TEXT_ALIGN_LEFT); lv_label_set_long_mode(content, LV_LABEL_LONG_WRAP); lv_obj_set_height(content, 252);
+		if (reader->action_menu) {
+			static const char *actions[] = {"返回书库", "切换书签", "跳到书签", "重新扫描"};
+			lv_obj_t *panel = lv_obj_create(screen); lv_obj_add_style(panel, &row_style, 0); lv_obj_set_pos(panel, 23, 96); lv_obj_set_size(panel, 194, 188);
+			for (i = 0; i < 4; i++) { lv_obj_t *row = lv_obj_create(panel), *item; lv_obj_add_style(row, i == reader->action_selection ? &selected_style : &row_style, 0); lv_obj_set_pos(row, 5, 5 + i * 43); lv_obj_set_size(row, 184, 39); item = label(row, actions[i], 8, 10, 168, &font_cjk_16, LV_TEXT_ALIGN_LEFT); if (i == reader->action_selection) lv_obj_set_style_text_color(item, lv_color_white(), 0); }
+		}
 		return;
 	}
-
-	if (!reader->file_count) {
-		add_label(screen,
-			  language == DASH_LANG_EN ?
-			  "NO TXT BOOKS\n\nCopy files to:\n/mnt/UDISK/books\n/mnt/SDCARD/books" :
-			  "没有 TXT 书籍\n\n请复制文件到：\n/mnt/UDISK/books\n/mnt/SDCARD/books",
-			  12, 65, 216, &font_cjk_16, LV_TEXT_ALIGN_CENTER);
-	} else {
-		unsigned int first = reader->selection >= 5 ? reader->selection - 5 : 0;
-		unsigned int i;
-
-		for (i = first; i < reader->file_count && i < first + 6; i++) {
-			lv_obj_t *row = lv_obj_create(screen);
-			lv_obj_t *label;
-			int selected = i == reader->selection;
-
-			lv_obj_add_style(row, selected ? &selected_style : &card_style, 0);
-			lv_obj_set_pos(row, 8, 40 + (int)(i - first) * 45);
-			lv_obj_set_size(row, 224, 38);
-			lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-			label = add_label(row, reader->files[i].name, 7, 10, 208,
-					  &font_cjk_16, LV_TEXT_ALIGN_LEFT);
-			if (selected)
-				lv_obj_set_style_text_color(label, lv_color_white(), 0);
-		}
+	if (!reader->file_count) label(screen, language == DASH_LANG_EN ? "NO TXT FILES\n\nCopy to /mnt/UDISK/books" : "没有 TXT 文档\n\n请复制到 /mnt/UDISK/books", 10, 90, 220, &font_cjk_16, LV_TEXT_ALIGN_CENTER);
+	else {
+		unsigned int first = reader->selection > 5 ? reader->selection - 5 : 0, i;
+		for (i = first; i < reader->file_count && i < first + 6; i++) menu_row(screen, 40 + (int)(i - first) * 45, reader->files[i].name, NULL, i == reader->selection);
 	}
 }
 
-static void render_network(lv_obj_t *screen, enum dashboard_language language,
-			   const struct system_stats *stats,
-			   const struct wifi_scan_state *scan)
+static void render_connect_menu(lv_obj_t *screen, unsigned int selection, const struct eink_connect_status *connect, enum dashboard_language language)
 {
-	char signal[24];
+	menu_row(screen, 54, language == DASH_LANG_EN ? "WiFi / PHONE SETUP" : "WiFi / 手机配网", connect->wifi_connected ? connect->wifi_ssid : (connect->wifi_mode == EINK_WIFI_PORTAL ? "配网中" : "未连接"), selection == 0);
+	menu_row(screen, 105, language == DASH_LANG_EN ? "BLUETOOTH" : "蓝牙配对", connect->bt_state == EINK_BT_UNAVAILABLE ? "不可用" : connect->bt_state >= EINK_BT_ON ? "已开启" : "已关闭", selection == 1);
+	label(screen, language == DASH_LANG_EN ? "Phone setup creates a private hotspot.\nSTA resumes automatically on cancel or timeout." : "手机配网会临时创建独立热点。\n取消、超时或失败后自动恢复联网。", 10, 184, 220, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
+}
+
+static void render_wifi(lv_obj_t *screen, unsigned int selection, const struct eink_connect_status *connect, enum dashboard_language language)
+{
+	char timer[32]; unsigned int i;
+	menu_row(screen, 40, connect->wifi_mode == EINK_WIFI_PORTAL ? "取消手机配网" : "开始手机配网", connect->wifi_mode == EINK_WIFI_PORTAL ? "运行中" : "", selection == 0);
+	menu_row(screen, 84, "扫描附近网络", connect->wifi_count ? "已完成" : "", selection == 1);
+	menu_row(screen, 128, "断开当前网络", connect->wifi_connected ? connect->wifi_ssid : "未连接", selection == 2);
+	if (connect->wifi_mode == EINK_WIFI_PORTAL) {
+		snprintf(timer, sizeof(timer), "%u:%02u", connect->portal_seconds_left / 60, connect->portal_seconds_left % 60);
+		label(screen, "热点", 10, 183, 45, &font_cjk_16, LV_TEXT_ALIGN_LEFT); label(screen, connect->portal_ssid, 56, 183, 174, &lv_font_montserrat_16, LV_TEXT_ALIGN_RIGHT);
+		label(screen, "密码", 10, 211, 45, &font_cjk_16, LV_TEXT_ALIGN_LEFT); label(screen, connect->portal_password, 56, 211, 174, &lv_font_montserrat_16, LV_TEXT_ALIGN_RIGHT);
+		label(screen, "192.168.5.1", 10, 239, 150, &lv_font_montserrat_16, LV_TEXT_ALIGN_LEFT); label(screen, timer, 160, 239, 70, &lv_font_montserrat_16, LV_TEXT_ALIGN_RIGHT);
+	} else {
+		for (i = 0; i < connect->wifi_count && i < 4; i++) { char row[80]; snprintf(row, sizeof(row), "%s  %ddBm", connect->wifi[i].ssid, connect->wifi[i].signal); label(screen, row, 10, 184 + (int)i * 27, 220, &font_cjk_16, LV_TEXT_ALIGN_LEFT); }
+	}
+	label(screen, connect->message, 10, 300, 220, &font_cjk_16, LV_TEXT_ALIGN_CENTER); (void)language;
+}
+
+static void render_bluetooth(lv_obj_t *screen, unsigned int selection, const struct eink_connect_status *connect)
+{
 	unsigned int i;
-
-	snprintf(signal, sizeof(signal), "%d%%", stats->wifi_signal_percent);
-	add_info_row(screen, 40, language == DASH_LANG_EN ? "WIFI" : "无线网络",
-		     stats->wifi_connected ? stats->wifi_ssid :
-		     (language == DASH_LANG_EN ? "DISCONNECTED" : "未连接"));
-	add_info_row(screen, 73, language == DASH_LANG_EN ? "ADDRESS" : "网络地址",
-		     stats->ip_address);
-	add_info_row(screen, 106, language == DASH_LANG_EN ? "SIGNAL" : "信号强度",
-		     stats->wifi_connected ? signal : "--");
-	add_label(screen, language == DASH_LANG_EN ? "NEARBY NETWORKS" : "附近网络",
-		  10, 143, 220, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
-	add_rule(screen, 166);
-	if (scan->running) {
-		add_label(screen, language == DASH_LANG_EN ? "SCANNING..." : "正在扫描...",
-			  10, 181, 220, &font_cjk_16, LV_TEXT_ALIGN_CENTER);
-	} else if (!scan->result_count) {
-		add_label(screen,
-			  language == DASH_LANG_EN ? "PRESS OK TO SCAN" : "按确认键扫描",
-			  10, 181, 220, &font_cjk_16, LV_TEXT_ALIGN_CENTER);
-	} else {
-		for (i = 0; i < scan->result_count; i++) {
-			char row[96];
-
-			snprintf(row, sizeof(row), "%d dBm  %s",
-				 scan->results[i].signal_dbm, scan->results[i].ssid);
-			add_label(screen, row, 10, 174 + (int)i * 24, 220,
-				  &font_cjk_16, LV_TEXT_ALIGN_LEFT);
-		}
+	if (connect->pair_pending) {
+		char passkey[32], hint[64]; snprintf(passkey, sizeof(passkey), "%06u", connect->pair_passkey);
+		if (connect->pair_input) snprintf(hint, sizeof(hint), "K1/K3 修改第 %u 位 · K2 下一位", connect->pair_cursor + 1);
+		else snprintf(hint, sizeof(hint), "K2 接受 · 长按拒绝");
+		label(screen, connect->pair_input ? "输入蓝牙 PIN / PASSKEY" : "确认蓝牙配对", 8, 63, 224, &font_cjk_16, LV_TEXT_ALIGN_CENTER); label(screen, connect->pair_device, 8, 105, 224, &font_cjk_16, LV_TEXT_ALIGN_CENTER); label(screen, passkey, 8, 151, 224, &lv_font_montserrat_28, LV_TEXT_ALIGN_CENTER); label(screen, hint, 8, 221, 224, &font_cjk_16, LV_TEXT_ALIGN_CENTER); return;
 	}
+	menu_row(screen, 40, connect->bt_state >= EINK_BT_ON ? "关闭蓝牙" : "开启蓝牙", connect->bt_state == EINK_BT_UNAVAILABLE ? "不可用" : "", selection == 0);
+	menu_row(screen, 84, "扫描设备", connect->bt_state == EINK_BT_SCANNING ? "扫描中" : "", selection == 1);
+	for (i = 0; i < connect->bt_count && i < 4; i++) { char mark[20]; snprintf(mark, sizeof(mark), "%s%s", connect->bt[i].paired ? "已配对" : "", connect->bt[i].connected ? " 已连接" : ""); menu_row(screen, 128 + (int)i * 44, connect->bt[i].name, mark, selection == i + 2); }
 }
 
-static void render_diagnostics(lv_obj_t *screen, enum dashboard_language language,
-			       const struct system_stats *stats,
-			       const struct epd_100ask_info *info, int last_error)
+static void render_more(lv_obj_t *screen, unsigned int selection, enum dashboard_language language)
 {
-	char body[512];
-	const char *mode = "GC";
-
-	if (info->refresh_mode == EPD_100ASK_REFRESH_DU)
-		mode = "DU";
-	else if (info->refresh_mode == EPD_100ASK_REFRESH_5S)
-		mode = "5S";
-	if (language == DASH_LANG_EN) {
-		snprintf(body, sizeof(body),
-			 "HOST       %s\nKERNEL     %s\nINTERFACE  %s\nIP         %s\n\nEPD MODE   %s\nFULL       %u\nPARTIAL    %u\nSKIPPED    %u\nLAST       %s",
-			 stats->hostname, stats->kernel, stats->interface, stats->ip_address,
-			 mode, info->full_refreshes, info->partial_refreshes,
-			 info->skipped_refreshes, last_error ? "FAILED" : "OK");
-	} else {
-		snprintf(body, sizeof(body),
-			 "主机       %s\n内核       %s\n网络接口   %s\n地址       %s\n\n刷新模式   %s\n全刷次数   %u\n局刷次数   %u\n跳过次数   %u\n最近刷新   %s",
-			 stats->hostname, stats->kernel, stats->interface, stats->ip_address,
-			 mode, info->full_refreshes, info->partial_refreshes,
-			 info->skipped_refreshes, last_error ? "失败" : "成功");
-	}
-	add_label(screen, body, 10, 43, 220, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
+	static const char *zh[] = {"系统资源", "设备诊断", "系统设置", "关于系统"}; static const char *en[] = {"RESOURCES", "DIAGNOSTICS", "SETTINGS", "ABOUT"}; unsigned int i;
+	for (i = 0; i < MORE_ITEM_COUNT; i++) menu_row(screen, 49 + (int)i * 53, language == DASH_LANG_EN ? en[i] : zh[i], NULL, selection == i);
 }
 
-static void add_setting_row(lv_obj_t *screen, int y, const char *name,
-			    const char *value, int selected)
+static void render_resources(lv_obj_t *screen, const struct system_stats *stats)
 {
-	lv_obj_t *row = lv_obj_create(screen);
-	lv_obj_t *label;
-
-	lv_obj_add_style(row, selected ? &selected_style : &card_style, 0);
-	lv_obj_set_pos(row, 8, y);
-	lv_obj_set_size(row, 224, 55);
-	lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-	label = add_label(row, name, 8, 16, 128, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
-	if (selected)
-		lv_obj_set_style_text_color(label, lv_color_white(), 0);
-	label = add_label(row, value, 138, 16, 76, &font_cjk_16, LV_TEXT_ALIGN_RIGHT);
-	if (selected)
-		lv_obj_set_style_text_color(label, lv_color_white(), 0);
+	char body[512]; unsigned int memory = stats->memory_total_kb ? (unsigned int)((stats->memory_total_kb - stats->memory_available_kb) * 100 / stats->memory_total_kb) : 0;
+	snprintf(body, sizeof(body), "CPU              %u%%\n负载              %.2f\n\n内存              %u%%\n可用              %llu MB\n\n存储可用          %llu MB\n温度              %.1f C\n运行              %.1f h", stats->cpu_percent, stats->load_average, memory, (unsigned long long)stats->memory_available_kb / 1024, (unsigned long long)stats->storage_available_kb / 1024, stats->temperature_millic / 1000.0, stats->uptime_sec / 3600.0);
+	label(screen, body, 12, 48, 216, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
 }
 
-static void render_settings(lv_obj_t *screen, unsigned int selection,
-			    const struct dashboard_settings *settings)
+static void render_diagnostics(lv_obj_t *screen, const struct system_stats *stats, const struct epd_100ask_info *info, int error)
 {
-	char interval[32], full[32];
-	int en = settings->language == DASH_LANG_EN;
-
-	snprintf(interval, sizeof(interval), "%us", settings->refresh_interval_sec);
-	snprintf(full, sizeof(full), "%u", settings->full_refresh_every);
-	add_setting_row(screen, 42, en ? "LANGUAGE" : "界面语言",
-			settings->language == DASH_LANG_EN ? "EN" : "中文", selection == 0);
-	add_setting_row(screen, 107, en ? "AUTO REFRESH" : "自动刷新",
-			interval, selection == 1);
-	add_setting_row(screen, 172, en ? "FULL CYCLE" : "全刷间隔",
-			full, selection == 2);
-	add_setting_row(screen, 237, en ? "CLEAN GHOST" : "清理残影",
-			en ? "RUN" : "执行", selection == 3);
+	char body[512]; snprintf(body, sizeof(body), "主机       %s\n内核       %s\n接口       %s\n地址       %s\n\n全刷       %u\n局刷       %u\n跳过       %u\n最近刷新   %s", stats->hostname, stats->kernel, stats->interface, stats->ip_address, info->full_refreshes, info->partial_refreshes, info->skipped_refreshes, error ? "失败" : "成功"); label(screen, body, 10, 45, 220, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
 }
 
-static void render_about(lv_obj_t *screen, enum dashboard_language language)
+static void render_settings(lv_obj_t *screen, unsigned int selection, const struct dashboard_settings *settings)
 {
-	char body[512];
+	char interval[24], cycle[24]; snprintf(interval, sizeof(interval), "%us", settings->refresh_interval_sec); snprintf(cycle, sizeof(cycle), "%u", settings->full_refresh_every);
+	menu_row(screen, 44, "界面语言", settings->language == DASH_LANG_EN ? "EN" : "中文", selection == 0);
+	menu_row(screen, 93, "自动刷新", interval, selection == 1); menu_row(screen, 142, "全刷间隔", cycle, selection == 2); menu_row(screen, 191, "立即全刷", "执行", selection == 3);
+	label(screen, "时区", 10, 259, 65, &font_cjk_16, LV_TEXT_ALIGN_LEFT); label(screen, settings->timezone, 75, 259, 155, &lv_font_montserrat_16, LV_TEXT_ALIGN_RIGHT);
+}
 
-	if (language == DASH_LANG_EN)
-		snprintf(body, sizeof(body),
-			 "EINK OS\nVersion 1.2\n\nPlatform   Allwinner T113\nDisplay    3.52 inch\nResolution 240 x 360\nApps       8 built-in\nUI Engine  LVGL 8\nInput      3 physical keys\n\nLicense    MIT / OFL-1.1");
-	else
-		snprintf(body, sizeof(body),
-			 "EINK OS\n版本 1.2\n\n平台       Allwinner T113\n屏幕       3.52 英寸\n分辨率     240 x 360\n应用       8 个内置\n界面引擎   LVGL 8\n输入       三个实体按键\n\n许可证     MIT / OFL-1.1");
-	add_label(screen, body, 12, 50, 216, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
+static void render_about(lv_obj_t *screen)
+{
+	label(screen, "EINK OS\n版本 2.0\n\n电子手帐界面\n日历 / 农历 / 节日\n手机 WiFi 配网\n通用蓝牙配对\nUTF-8 / GB18030 阅读\n\nT113 · 240 x 360 · LVGL 8", 12, 49, 216, &font_cjk_16, LV_TEXT_ALIGN_LEFT);
 }
 
 void desktop_ui_init(void)
 {
-	lv_style_init(&root_style);
-	lv_style_set_bg_color(&root_style, lv_color_white());
-	lv_style_set_bg_opa(&root_style, LV_OPA_COVER);
-	lv_style_set_border_width(&root_style, 0);
-	lv_style_set_pad_all(&root_style, 0);
-
-	lv_style_init(&text_style);
-	lv_style_set_text_color(&text_style, lv_color_black());
-	lv_style_set_bg_opa(&text_style, LV_OPA_TRANSP);
-	lv_style_set_border_width(&text_style, 0);
-	lv_style_set_pad_all(&text_style, 0);
-
-	lv_style_init(&line_style);
-	lv_style_set_bg_color(&line_style, lv_color_black());
-	lv_style_set_bg_opa(&line_style, LV_OPA_COVER);
-	lv_style_set_border_width(&line_style, 0);
-	lv_style_set_pad_all(&line_style, 0);
-
-	lv_style_init(&card_style);
-	lv_style_set_bg_color(&card_style, lv_color_white());
-	lv_style_set_bg_opa(&card_style, LV_OPA_COVER);
-	lv_style_set_border_color(&card_style, lv_color_black());
-	lv_style_set_border_width(&card_style, 2);
-	lv_style_set_radius(&card_style, 0);
-	lv_style_set_pad_all(&card_style, 0);
-
-	lv_style_init(&selected_style);
-	lv_style_set_bg_color(&selected_style, lv_color_black());
-	lv_style_set_bg_opa(&selected_style, LV_OPA_COVER);
-	lv_style_set_border_color(&selected_style, lv_color_black());
-	lv_style_set_border_width(&selected_style, 2);
-	lv_style_set_radius(&selected_style, 0);
-	lv_style_set_pad_all(&selected_style, 0);
-
-	lv_style_init(&bar_bg_style);
-	lv_style_set_bg_color(&bar_bg_style, lv_color_white());
-	lv_style_set_bg_opa(&bar_bg_style, LV_OPA_COVER);
-	lv_style_set_border_color(&bar_bg_style, lv_color_black());
-	lv_style_set_border_width(&bar_bg_style, 1);
-	lv_style_set_radius(&bar_bg_style, 0);
-	lv_style_set_pad_all(&bar_bg_style, 1);
-
-	lv_style_init(&bar_indic_style);
-	lv_style_set_bg_color(&bar_indic_style, lv_color_black());
-	lv_style_set_bg_opa(&bar_indic_style, LV_OPA_COVER);
-	lv_style_set_radius(&bar_indic_style, 0);
+	lv_style_init(&root_style); lv_style_set_bg_color(&root_style, lv_color_white()); lv_style_set_bg_opa(&root_style, LV_OPA_COVER); lv_style_set_border_width(&root_style, 0); lv_style_set_pad_all(&root_style, 0);
+	lv_style_init(&text_style); lv_style_set_text_color(&text_style, lv_color_black()); lv_style_set_bg_opa(&text_style, LV_OPA_TRANSP); lv_style_set_border_width(&text_style, 0); lv_style_set_pad_all(&text_style, 0);
+	lv_style_init(&line_style); lv_style_set_bg_color(&line_style, lv_color_black()); lv_style_set_bg_opa(&line_style, LV_OPA_COVER); lv_style_set_border_width(&line_style, 0); lv_style_set_pad_all(&line_style, 0);
+	lv_style_init(&row_style); lv_style_set_bg_color(&row_style, lv_color_white()); lv_style_set_bg_opa(&row_style, LV_OPA_COVER); lv_style_set_border_width(&row_style, 0); lv_style_set_radius(&row_style, 0); lv_style_set_pad_all(&row_style, 0);
+	lv_style_init(&selected_style); lv_style_set_bg_color(&selected_style, lv_color_black()); lv_style_set_bg_opa(&selected_style, LV_OPA_COVER); lv_style_set_border_width(&selected_style, 0); lv_style_set_radius(&selected_style, 0); lv_style_set_pad_all(&selected_style, 0);
 }
 
-void desktop_ui_render(enum desktop_screen screen, unsigned int selection,
-		       int calendar_month_offset,
-		       const struct dashboard_settings *settings,
-		       const struct system_stats *stats,
-		       const struct epd_100ask_info *epd_info,
-		       const struct reader_state *reader,
-		       const struct wifi_scan_state *wifi_scan,
+void desktop_ui_render(enum desktop_screen screen, unsigned int selection, int month_offset,
+		       const struct dashboard_settings *settings, const struct system_stats *stats,
+		       const struct epd_100ask_info *epd_info, const struct reader_state *reader,
+		       const struct eink_connect_status *connect, enum eink_time_quality quality,
 		       int last_refresh_error)
 {
-	lv_obj_t *active = lv_scr_act();
-	static const char *titles_zh[] = {"EINK OS", "系统概览", "日历", "阅读器",
-					  "网络状态", "系统资源", "设备诊断", "系统设置", "关于系统"};
-	static const char *titles_en[] = {"EINK OS", "OVERVIEW", "CALENDAR", "READER",
-					  "NETWORK", "RESOURCES", "DIAGNOSTICS", "SETTINGS", "ABOUT"};
-	enum dashboard_language language = settings->language;
-
-	if (screen < DESKTOP_LAUNCHER || screen > DESKTOP_ABOUT)
-		screen = DESKTOP_LAUNCHER;
-	lv_obj_clean(active);
-	lv_obj_add_style(active, &root_style, 0);
-	add_header(active, language == DASH_LANG_EN ? titles_en[screen] : titles_zh[screen], stats);
-
+	lv_obj_t *active = lv_scr_act(); static const char *titles[] = {"EINK OS","日历","阅读","连接","更多","WiFi 配网","蓝牙配对","系统资源","设备诊断","系统设置","关于系统"};
+	lv_obj_clean(active); lv_obj_add_style(active, &root_style, 0);
+	if (screen == DESKTOP_HOME) { render_home(active, selection, settings, connect, quality); return; }
+	header(active, titles[screen], connect);
 	switch (screen) {
-	case DESKTOP_LAUNCHER:
-		render_launcher(active, selection, language);
-		break;
-	case DESKTOP_OVERVIEW:
-		render_overview(active, language, stats);
-		break;
-	case DESKTOP_CALENDAR:
-		render_calendar(active, language, calendar_month_offset);
-		break;
-	case DESKTOP_READER:
-		render_reader(active, language, reader);
-		break;
-	case DESKTOP_NETWORK:
-		render_network(active, language, stats, wifi_scan);
-		break;
-	case DESKTOP_RESOURCES:
-		render_resources(active, language, stats);
-		break;
-	case DESKTOP_DIAGNOSTICS:
-		render_diagnostics(active, language, stats, epd_info, last_refresh_error);
-		break;
-	case DESKTOP_SETTINGS:
-		render_settings(active, selection % DESKTOP_SETTINGS_COUNT, settings);
-		break;
-	case DESKTOP_ABOUT:
-		render_about(active, language);
-		break;
+	case DESKTOP_CALENDAR: render_calendar(active, month_offset, settings->language); footer(active, "K1/K3 月份  K2 今天  长按返回"); break;
+	case DESKTOP_READER: render_reader(active, reader, settings->language); footer(active, reader->opened ? "K1/K3 翻页  K2 菜单  长按返回" : "K1/K3 选择  K2 阅读  长按返回"); break;
+	case DESKTOP_CONNECT: render_connect_menu(active, selection, connect, settings->language); footer(active, "K1/K3 选择  K2 打开  长按返回"); break;
+	case DESKTOP_MORE: render_more(active, selection, settings->language); footer(active, "K1/K3 选择  K2 打开  长按返回"); break;
+	case DESKTOP_WIFI: render_wifi(active, selection, connect, settings->language); footer(active, "K1/K3 选择  K2 执行  长按返回"); break;
+	case DESKTOP_BLUETOOTH: render_bluetooth(active, selection, connect); footer(active, "K1/K3 选择  K2 操作  长按返回"); break;
+	case DESKTOP_RESOURCES: render_resources(active, stats); footer(active, "长按 K2 返回"); break;
+	case DESKTOP_DIAGNOSTICS: render_diagnostics(active, stats, epd_info, last_refresh_error); footer(active, "长按 K2 返回"); break;
+	case DESKTOP_SETTINGS: render_settings(active, selection % DESKTOP_SETTINGS_COUNT, settings); footer(active, "K1/K3 选择  K2 修改  长按返回"); break;
+	case DESKTOP_ABOUT: render_about(active); footer(active, "长按 K2 返回"); break;
+	default: break;
 	}
-	add_footer(active, screen, language, reader);
 }

@@ -3057,8 +3057,8 @@ CONFIG_BTMG_ENABLE_TTYS1=y
 #
 # btmanager protocol Configuration
 #
-# CONFIG_ENABLE_CLASSIC_BLUETOOTH is not set
-# CONFIG_ENABLE_LE_BLUETOOTH is not set
+CONFIG_ENABLE_CLASSIC_BLUETOOTH=y
+CONFIG_ENABLE_LE_BLUETOOTH=y
 # end of btmanager protocol Configuration
 
 CONFIG_BTMG_ENABLE_DEMO=y

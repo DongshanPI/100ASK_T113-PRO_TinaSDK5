@@ -14,10 +14,14 @@ E-Ink OS 桌面应用。
 - GC 全刷、DU 局刷和 5S 刷新波形
 - 白屏、黑屏、刷新模式和驱动状态 ioctl
 - BUSY 超时保护、重复帧跳过和刷新次数统计
-- 基于 LVGL 8 的中英文 E-Ink OS 桌面
-- 系统概览、日历、TXT 阅读器、网络状态、资源监控、设备诊断、设置和关于页面
-- Wi-Fi 扫描、周期刷新和定期全刷
-- OpenWrt 软件包、开机自启动服务和墨水屏测试工具
+- 基于 LVGL 8 的黑白电子手帐界面：日期、星期、农历、节日和连接状态集中显示
+- 1900–2100 农历转换、月历浏览、今日定位和常用中国节日
+- UTF-8/GB18030 TXT 阅读器，两层目录扫描、断点续读、书签和按字宽分页
+- 手机 Wi-Fi 配网：设备热点、内置网页、浏览器校时、失败/超时自动恢复 STA
+- 通用蓝牙设备扫描、配对确认、连接、断开和移除；无蓝牙硬件时不影响桌面启动
+- 独立 `eink-connectd` 连接服务与版本化本地协议，网络操作不会阻塞桌面进程
+- 断电时间恢复、联网 NTP 校时、周期刷新和每 10 次局刷自动全刷
+- OpenWrt 软件包、两个 procd 开机服务和墨水屏测试工具
 - 兼容未烧录 HUK 的非安全启动板，同时保留 Linux SMP 所需的 OP-TEE PSCI/SMC 服务
 - U-Boot 保留 3 秒串口中断窗口，便于无需物理按键执行 `efex` 恢复烧写
 
@@ -115,6 +119,7 @@ out/t113_linux_evb1_auto_nand_uart0.img
 
 ```bash
 make -C eink-3.52/lvgl_epd_demo clean all
+make -C eink-3.52/lvgl_epd_demo test
 make -C eink-3.52/epd_test clean all
 ```
 
@@ -147,11 +152,12 @@ epd-test sequence
 epd-test --partial checker
 ```
 
-E-Ink OS 默认由 `/etc/init.d/eink-dashboard` 在开机时启动，也可以手动控制：
+E-Ink OS 默认启动连接服务（顺序 94）和桌面（顺序 95），也可以手动控制：
 
 ```bash
 /etc/init.d/eink-dashboard stop
 /etc/init.d/eink-dashboard start
+/etc/init.d/eink-connectd restart
 logread | grep -i eink
 ```
 
@@ -166,6 +172,10 @@ key_next=119
 key_next_alt=114
 key_confirm=373
 key_confirm_alt=28
+provision_timeout_sec=300
+timezone=CST-8
+time_state_path=/etc/eink-os/time.state
+reader_state_path=/etc/eink-os/reader.state
 ```
 
 实机 GPADC0 阻值按键的确认结果为：K3 约 552–553 mV，对应 Linux
@@ -177,8 +187,57 @@ key_confirm_alt=28
 - K1（上一个）：移动到上一项、切换应用或向前翻页
 - K3（下一个，按键码 119）：移动到下一项、切换应用或向后翻页
 - K2（确认，按键码 373）短按：打开应用、执行当前操作
-- K2 长按：返回桌面；在桌面长按可切换中英文
+- K2 长按：逐级返回；阅读正文时先返回书库；在主页长按可切换中英文
 - 桌面默认每 60 秒更新一次状态，每 10 次局刷执行一次全刷
+
+主页只有四个入口：日历、阅读、连接、更多。资源、诊断、设置和关于均放在
+“更多”中。选择变化使用 DU 局刷，页面切换和阅读翻页使用 GC 全刷。
+
+## 手机 Wi-Fi 配网
+
+进入“连接 → WiFi / 手机配网”，选择“开始手机配网”。设备会停止 STA 并创建：
+
+```text
+SSID: EINKOS-<无线 MAC 后四位>
+密码: 屏幕显示的随机 8 位数字
+地址: http://192.168.5.1
+```
+
+手机连接热点后打开上述地址，选择扫描结果或输入隐藏 SSID，再输入密码提交。
+网页同时上传手机当前时间；连接成功后设备关闭热点、恢复 STA、保存网络并执行
+一次 NTP 校时。热点 5 分钟无操作会自动退出。密码只作为 `execv()` 参数传给
+厂商 `/bin/wifi`，不会拼接到 shell 命令或写入日志。
+
+Tina 的 XR829 配置不支持 STA/AP 并发，所以进入配网期间原 Wi-Fi 会暂时断开，
+这是预期行为。
+
+## 蓝牙配对
+
+覆盖层会启用 UART1（PG6/PG7）、Classic Bluetooth 和 BLE。进入“连接 → 蓝牙配对”
+后可开关适配器、扫描设备，并对列表项执行配对或连接。DisplayYesNo/Just Works
+确认时，短按 K2 接受、长按 K2 拒绝；屏幕会显示六位 passkey。
+
+系统只有在存在 `/etc/eink-os/bluetooth.enabled`（曾成功配对）时才在开机自动初始化
+蓝牙，否则保持关闭以节省功耗。若板上没有 XR829 蓝牙串口或 `/dev/ttyS1`，界面会
+显示“不可用”，但 Wi-Fi、阅读器和桌面继续正常工作。
+
+## TXT 阅读器
+
+把 `.txt` 文件复制到 `/mnt/UDISK/books`、`/mnt/SDCARD/books` 或其两层子目录。
+阅读器最多索引 128 个文件，优先按 UTF-8 解析（支持 BOM），无效 UTF-8 自动按
+GB18030 转换。单文件上限 32 MiB。阅读时 K1/K3 翻页，短按 K2 打开操作菜单：
+返回书库、切换书签、跳到书签、重新扫描。阅读位置和单书签原子保存到
+`/etc/eink-os/reader.state`，文件大小或修改时间变化后不会套用旧位置。
+
+## 时间状态
+
+默认时区是中国标准时间 `CST-8`。系统时间分三种状态：已准确同步、从断电记录恢复
+且等待联网校时、无有效时间。有效时间每 6 小时及服务退出时保存到
+`/etc/eink-os/time.state`。冷启动时间早于最后记录或固件构建时间时，优先恢复两者
+中较新的值；首次启动没有记录时使用固件构建时间，避免界面回到 1970 年或沿用
+RC RTC 中看似有效但已经过期的日期。手机配网页或 NTP 成功后转为准确状态。板载
+RC RTC 不能替代可靠的电池 RTC，因此生产硬件仍建议提供稳定 RTC 或保证设备能
+定期联网。
 
 ## 主要目录
 

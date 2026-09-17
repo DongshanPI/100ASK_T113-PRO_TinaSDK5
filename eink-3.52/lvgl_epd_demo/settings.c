@@ -16,6 +16,10 @@ void settings_defaults(struct dashboard_settings *settings)
 	settings->key_next_alt = KEY_VOLUMEDOWN;
 	settings->key_confirm = KEY_MODE;
 	settings->key_confirm_alt = KEY_ENTER;
+	settings->provision_timeout_sec = 300;
+	strcpy(settings->timezone, "CST-8");
+	strcpy(settings->time_state_path, EINK_DEFAULT_TIME_STATE);
+	strcpy(settings->reader_state_path, EINK_DEFAULT_READER_STATE);
 }
 
 static unsigned int bounded_uint(const char *value, unsigned int fallback,
@@ -69,6 +73,14 @@ int settings_load(struct dashboard_settings *settings, const char *path)
 			settings->key_confirm = bounded_uint(value, KEY_ENTER, 1, KEY_MAX);
 		else if (!strcmp(key, "key_confirm_alt"))
 			settings->key_confirm_alt = bounded_uint(value, KEY_MODE, 1, KEY_MAX);
+		else if (!strcmp(key, "provision_timeout_sec"))
+			settings->provision_timeout_sec = bounded_uint(value, 300, 60, 1800);
+		else if (!strcmp(key, "timezone"))
+			snprintf(settings->timezone, sizeof(settings->timezone), "%s", value);
+		else if (!strcmp(key, "time_state_path"))
+			snprintf(settings->time_state_path, sizeof(settings->time_state_path), "%s", value);
+		else if (!strcmp(key, "reader_state_path"))
+			snprintf(settings->reader_state_path, sizeof(settings->reader_state_path), "%s", value);
 	}
 	fclose(fp);
 	return 0;
@@ -93,6 +105,10 @@ int settings_save(const struct dashboard_settings *settings, const char *path)
 	fprintf(fp, "key_next_alt=%u\n", settings->key_next_alt);
 	fprintf(fp, "key_confirm=%u\n", settings->key_confirm);
 	fprintf(fp, "key_confirm_alt=%u\n", settings->key_confirm_alt);
+	fprintf(fp, "provision_timeout_sec=%u\n", settings->provision_timeout_sec);
+	fprintf(fp, "timezone=%s\n", settings->timezone);
+	fprintf(fp, "time_state_path=%s\n", settings->time_state_path);
+	fprintf(fp, "reader_state_path=%s\n", settings->reader_state_path);
 	if (fclose(fp))
 		return -errno;
 	if (rename(tmp_path, path))

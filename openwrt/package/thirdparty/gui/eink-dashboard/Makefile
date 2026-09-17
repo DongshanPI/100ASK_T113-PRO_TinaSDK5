@@ -1,8 +1,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=eink-dashboard
-PKG_VERSION:=1.2.0
-PKG_RELEASE:=3
+PKG_VERSION:=2.0.0
+PKG_RELEASE:=1
 PKG_LICENSE:=MIT
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
 SRC_CODE_DIR:=$(LICHEE_TOP_DIR)/eink-3.52/lvgl_epd_demo
@@ -16,7 +16,7 @@ define Package/eink-dashboard
   CATEGORY:=Gui
   SUBMENU:=Littlevgl
   TITLE:=240x360 E-Ink desktop OS shell
-  DEPENDS:=+libpthread +iw
+  DEPENDS:=+libpthread +iw +btmanager-v4.0 +bluez-daemon +bluez-utils +dnsmasq
 endef
 
 define Package/eink-dashboard/description
@@ -39,6 +39,7 @@ define Build/Compile
 		SDK_BASE="$(LICHEE_TOP_DIR)" \
 		CFLAGS="$(TARGET_CFLAGS)" \
 		LDFLAGS="$(TARGET_LDFLAGS)" \
+		STAGING_DIR="$(STAGING_DIR)" \
 		STATIC=0 \
 		all
 	$(TARGET_CC) $(TARGET_CFLAGS) \
@@ -54,11 +55,14 @@ endef
 define Package/eink-dashboard/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/eink-dashboard $(1)/usr/bin/eink-dashboard
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/eink-connectd $(1)/usr/bin/eink-connectd
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/epd-test $(1)/usr/bin/epd-test
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/eink-dashboard.init $(1)/etc/init.d/eink-dashboard
+	$(INSTALL_BIN) ./files/eink-connectd.init $(1)/etc/init.d/eink-connectd
 	$(INSTALL_DIR) $(1)/etc
 	$(INSTALL_CONF) ./files/eink-dashboard.conf $(1)/etc/eink-dashboard.conf
+	$(INSTALL_DIR) $(1)/etc/eink-os
 	$(INSTALL_DIR) $(1)/usr/share/licenses/eink-dashboard
 	$(INSTALL_DATA) ./files/THIRD_PARTY_NOTICES $(1)/usr/share/licenses/eink-dashboard/
 	$(INSTALL_DATA) ./files/OFL-1.1.txt $(1)/usr/share/licenses/eink-dashboard/
