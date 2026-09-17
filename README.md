@@ -160,17 +160,22 @@ language=zh_CN
 refresh_interval_sec=60
 full_refresh_every=10
 key_previous=115
-key_next=114
-key_next_alt=119
-key_confirm=28
-key_confirm_alt=373
+key_next=119
+key_next_alt=114
+key_confirm=373
+key_confirm_alt=28
 ```
+
+实机 GPADC0 阻值按键的确认结果为：K3 约 552–553 mV，对应 Linux
+按键码 119（`KEY_PAUSE`）；K2 约 766 mV，对应按键码 373
+（`KEY_MODE`）。配置中的 `*_alt` 保留旧版键值作为兼容映射。
 
 ## 操作方式
 
-- 上一个/下一个按键：移动选择、切换应用或翻页
-- 确认键短按：打开应用、执行当前操作
-- 确认键长按：返回桌面；在桌面长按可切换中英文
+- K1（上一个）：移动到上一项、切换应用或向前翻页
+- K3（下一个，按键码 119）：移动到下一项、切换应用或向后翻页
+- K2（确认，按键码 373）短按：打开应用、执行当前操作
+- K2 长按：返回桌面；在桌面长按可切换中英文
 - 桌面默认每 60 秒更新一次状态，每 10 次局刷执行一次全刷
 
 ## 主要目录

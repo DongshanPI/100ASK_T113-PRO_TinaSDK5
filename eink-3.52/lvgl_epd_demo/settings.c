@@ -12,10 +12,10 @@ void settings_defaults(struct dashboard_settings *settings)
 	settings->refresh_interval_sec = 60;
 	settings->full_refresh_every = 10;
 	settings->key_previous = KEY_VOLUMEUP;
-	settings->key_next = KEY_VOLUMEDOWN;
-	settings->key_next_alt = KEY_PAUSE;
-	settings->key_confirm = KEY_ENTER;
-	settings->key_confirm_alt = KEY_MODE;
+	settings->key_next = KEY_PAUSE;
+	settings->key_next_alt = KEY_VOLUMEDOWN;
+	settings->key_confirm = KEY_MODE;
+	settings->key_confirm_alt = KEY_ENTER;
 }
 
 static unsigned int bounded_uint(const char *value, unsigned int fallback,
