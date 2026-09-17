@@ -1,0 +1,14 @@
+EINK OS third-party notices
+===========================
+
+LVGL 8.3.2
+Copyright (c) 2021 LVGL Kft
+License: MIT
+Source: https://github.com/lvgl/lvgl
+
+Source Han Sans SC (generated glyph subset in font_cjk_16.c)
+Copyright 2014-2021 Adobe
+License: SIL Open Font License 1.1
+Source: https://github.com/adobe-fonts/source-han-sans
+
+The generated font subset remains subject to the SIL Open Font License 1.1.
