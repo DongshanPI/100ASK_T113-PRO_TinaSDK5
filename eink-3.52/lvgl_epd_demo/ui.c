@@ -76,7 +76,7 @@ static void render_home(lv_obj_t *screen, unsigned int selection,
 	if (quality != EINK_TIME_ACCURATE) label(screen, quality == EINK_TIME_RESTORED ? "等待网络校时" : "时间未设置", 8, 137, 224, &font_cjk_16, LV_TEXT_ALIGN_RIGHT);
 	rule(screen, 163);
 	for (i = 0; i < HOME_ITEM_COUNT; i++) menu_row(screen, 171 + (int)i * 39, settings->language == DASH_LANG_EN ? en[i] : zh[i], NULL, i == selection);
-	footer(screen, settings->language == DASH_LANG_EN ? "K1/K2 SELECT  K3 OPEN  HOLD K3:LANG" : "K1/K2 选择  K3 打开  长按K3切换语言");
+	footer(screen, settings->language == DASH_LANG_EN ? "K1/K3 SELECT  K2 OPEN  HOLD K2:LANG" : "K1/K3 选择  K2 打开  长按K2切换语言");
 }
 
 static int leap_year(int year) { return (!(year % 4) && year % 100) || !(year % 400); }
@@ -159,8 +159,8 @@ static void render_bluetooth(lv_obj_t *screen, unsigned int selection, const str
 	unsigned int i;
 	if (connect->pair_pending) {
 		char passkey[32], hint[64]; snprintf(passkey, sizeof(passkey), "%06u", connect->pair_passkey);
-		if (connect->pair_input) snprintf(hint, sizeof(hint), "K1/K2 修改第 %u 位 · K3 下一位", connect->pair_cursor + 1);
-		else snprintf(hint, sizeof(hint), "K3 接受 · 长按K3拒绝");
+		if (connect->pair_input) snprintf(hint, sizeof(hint), "K1/K3 修改第 %u 位 · K2 下一位", connect->pair_cursor + 1);
+		else snprintf(hint, sizeof(hint), "K2 接受 · 长按K2拒绝");
 		label(screen, connect->pair_input ? "输入蓝牙 PIN / PASSKEY" : "确认蓝牙配对", 8, 63, 224, &font_cjk_16, LV_TEXT_ALIGN_CENTER); label(screen, connect->pair_device, 8, 105, 224, &font_cjk_16, LV_TEXT_ALIGN_CENTER); label(screen, passkey, 8, 151, 224, &lv_font_montserrat_28, LV_TEXT_ALIGN_CENTER); label(screen, hint, 8, 221, 224, &font_cjk_16, LV_TEXT_ALIGN_CENTER); return;
 	}
 	menu_row(screen, 40, connect->bt_state >= EINK_BT_ON ? "关闭蓝牙" : "开启蓝牙", connect->bt_state == EINK_BT_UNAVAILABLE ? "不可用" : "", selection == 0);
@@ -219,16 +219,16 @@ void desktop_ui_render(enum desktop_screen screen, unsigned int selection, int m
 	if (screen == DESKTOP_HOME) { render_home(active, selection, settings, connect, quality); return; }
 	header(active, titles[screen], connect);
 	switch (screen) {
-	case DESKTOP_CALENDAR: render_calendar(active, month_offset, settings->language); footer(active, "K1/K2 月份  K3 今天  长按K3返回"); break;
-	case DESKTOP_READER: render_reader(active, reader, settings->language); footer(active, reader->opened ? "K1/K2 翻页  K3 菜单  长按K3返回" : "K1/K2 选择  K3 阅读  长按K3返回"); break;
-	case DESKTOP_CONNECT: render_connect_menu(active, selection, connect, settings->language); footer(active, "K1/K2 选择  K3 打开  长按K3返回"); break;
-	case DESKTOP_MORE: render_more(active, selection, settings->language); footer(active, "K1/K2 选择  K3 打开  长按K3返回"); break;
-	case DESKTOP_WIFI: render_wifi(active, selection, connect, settings->language); footer(active, "K1/K2 选择  K3 执行  长按K3返回"); break;
-	case DESKTOP_BLUETOOTH: render_bluetooth(active, selection, connect); footer(active, "K1/K2 选择  K3 操作  长按K3返回"); break;
-	case DESKTOP_RESOURCES: render_resources(active, stats); footer(active, "长按 K3 返回"); break;
-	case DESKTOP_DIAGNOSTICS: render_diagnostics(active, stats, epd_info, last_refresh_error); footer(active, "长按 K3 返回"); break;
-	case DESKTOP_SETTINGS: render_settings(active, selection % DESKTOP_SETTINGS_COUNT, settings); footer(active, "K1/K2 选择  K3 修改  长按K3返回"); break;
-	case DESKTOP_ABOUT: render_about(active); footer(active, "长按 K3 返回"); break;
+	case DESKTOP_CALENDAR: render_calendar(active, month_offset, settings->language); footer(active, "K1/K3 月份  K2 今天  长按K2返回"); break;
+	case DESKTOP_READER: render_reader(active, reader, settings->language); footer(active, reader->opened ? "K1/K3 翻页  K2 菜单  长按K2返回" : "K1/K3 选择  K2 阅读  长按K2返回"); break;
+	case DESKTOP_CONNECT: render_connect_menu(active, selection, connect, settings->language); footer(active, "K1/K3 选择  K2 打开  长按K2返回"); break;
+	case DESKTOP_MORE: render_more(active, selection, settings->language); footer(active, "K1/K3 选择  K2 打开  长按K2返回"); break;
+	case DESKTOP_WIFI: render_wifi(active, selection, connect, settings->language); footer(active, "K1/K3 选择  K2 执行  长按K2返回"); break;
+	case DESKTOP_BLUETOOTH: render_bluetooth(active, selection, connect); footer(active, "K1/K3 选择  K2 操作  长按K2返回"); break;
+	case DESKTOP_RESOURCES: render_resources(active, stats); footer(active, "长按 K2 返回"); break;
+	case DESKTOP_DIAGNOSTICS: render_diagnostics(active, stats, epd_info, last_refresh_error); footer(active, "长按 K2 返回"); break;
+	case DESKTOP_SETTINGS: render_settings(active, selection % DESKTOP_SETTINGS_COUNT, settings); footer(active, "K1/K3 选择  K2 修改  长按K2返回"); break;
+	case DESKTOP_ABOUT: render_about(active); footer(active, "长按 K2 返回"); break;
 	default: break;
 	}
 }
