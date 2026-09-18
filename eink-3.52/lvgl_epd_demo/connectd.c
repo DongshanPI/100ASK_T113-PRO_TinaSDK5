@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "connect_proto.h"
 #include "time_state.h"
+#include "wifi_results.h"
 
 #include <arpa/inet.h>
 #include <bt_manager.h>
@@ -28,6 +29,7 @@
 
 #define CONFIG_PATH "/etc/eink-dashboard.conf"
 #define BT_MARKER_PATH "/etc/eink-os/bluetooth.enabled"
+#define PORTAL_DNS_PATH "/tmp/dnsmasq.d/eink-portal.conf"
 
 static volatile sig_atomic_t running = 1;
 static struct eink_connect_status state;
@@ -178,45 +180,84 @@ static void refresh_network(void)
 
 static int scan_wifi(void)
 {
-	char output[4096], *line, *save;
-	char *scan[] = {"/bin/wifi", "-s", NULL};
-	char *list[] = {"/bin/wifi", "-l", "all", NULL};
+	int pipes[2], status, waited;
+	pid_t child;
+	FILE *stream;
 
-	state.wifi_count = 0;
-	run_argv(scan, NULL, 0);
-	if (run_argv(list, output, sizeof(output))) {
+	if (state.wifi_mode == EINK_WIFI_PORTAL) {
+		snprintf(state.message, sizeof(state.message), "Cannot scan while hotspot is active");
+		return -EBUSY;
+	}
+	if (pipe(pipes))
+		return -errno;
+	child = fork();
+	if (child < 0) {
+		close(pipes[0]); close(pipes[1]);
+		return -errno;
+	}
+	if (!child) {
+		close(pipes[0]);
+		dup2(pipes[1], STDOUT_FILENO);
+		dup2(pipes[1], STDERR_FILENO);
+		close(pipes[1]);
+		execl("/usr/sbin/iw", "iw", "dev", "wlan0", "scan", (char *)NULL);
+		_exit(127);
+	}
+	close(pipes[1]);
+	stream = fdopen(pipes[0], "r");
+	if (!stream) {
+		close(pipes[0]);
+		waitpid(child, &status, 0);
+		return -errno;
+	}
+	wifi_results_parse(stream, &state);
+	fclose(stream);
+	do {
+		waited = waitpid(child, &status, 0);
+	} while (waited < 0 && errno == EINTR);
+	if (waited < 0) {
+		snprintf(state.message, sizeof(state.message), "WiFi scan failed");
+		return -errno;
+	}
+	if (!WIFEXITED(status) || WEXITSTATUS(status)) {
 		snprintf(state.message, sizeof(state.message), "WiFi scan failed");
 		return -EIO;
-	}
-	for (line = strtok_r(output, "\r\n", &save); line && state.wifi_count < EINK_CONNECT_MAX_WIFI;
-	     line = strtok_r(NULL, "\r\n", &save)) {
-		char ssid[33] = {0};
-		int signal = 0;
-		char *quoted = strchr(line, '"');
-		if (quoted) {
-			char *end = strchr(++quoted, '"');
-			if (end) {
-				*end = '\0';
-				snprintf(ssid, sizeof(ssid), "%s", quoted);
-			}
-		} else if (sscanf(line, "%32s %d", ssid, &signal) < 1) {
-			continue;
-		}
-		if (!ssid[0] || !strcmp(ssid, "SSID")) continue;
-		snprintf(state.wifi[state.wifi_count].ssid, 33, "%s", ssid);
-		state.wifi[state.wifi_count].signal = signal;
-		state.wifi[state.wifi_count].secure = strstr(line, "WPA") != NULL;
-		state.wifi_count++;
 	}
 	snprintf(state.message, sizeof(state.message), "%u network(s)", state.wifi_count);
 	return 0;
 }
 
+static int set_captive_dns(int enabled)
+{
+	char *restart[] = {"/etc/init.d/dnsmasq", "restart", NULL};
+	FILE *file;
+
+	if (!enabled) {
+		unlink(PORTAL_DNS_PATH);
+		return run_argv(restart, NULL, 0);
+	}
+	if (mkdir("/tmp/dnsmasq.d", 0755) && errno != EEXIST)
+		return -errno;
+	file = fopen(PORTAL_DNS_PATH, "w");
+	if (!file)
+		return -errno;
+	fputs("address=/#/192.168.5.1\n"
+	      "dhcp-option=3,192.168.5.1\n"
+	      "dhcp-option=6,192.168.5.1\n", file);
+	if (fclose(file))
+		return -errno;
+	return run_argv(restart, NULL, 0);
+}
+
 static void stop_portal(int resume_sta)
 {
 	char *off[] = {"/bin/wifi", "-f", "ap", NULL};
+	char *clear_ip[] = {"/sbin/ip", "addr", "flush", "dev", "wlan0", NULL};
 	char *sta[] = {"/bin/wifi", "-o", "sta", NULL};
 	run_argv(off, NULL, 0);
+	/* The vendor AP teardown can leave 192.168.5.1 on wlan0. */
+	run_argv(clear_ip, NULL, 0);
+	set_captive_dns(0);
 	portal_deadline = 0;
 	state.portal_ssid[0] = '\0';
 	state.portal_password[0] = '\0';
@@ -253,6 +294,7 @@ static int start_portal(void)
 	char *ap[8];
 
 	read_mac_suffix(suffix);
+	scan_wifi();
 	snprintf(state.portal_ssid, sizeof(state.portal_ssid), "EINKOS-%s", suffix);
 	random_password(state.portal_password);
 	run_argv(sta_off, NULL, 0);
@@ -265,7 +307,10 @@ static int start_portal(void)
 	}
 	state.wifi_mode = EINK_WIFI_PORTAL;
 	portal_deadline = time(NULL) + portal_timeout;
-	snprintf(state.message, sizeof(state.message), "Open http://192.168.5.1");
+	if (set_captive_dns(1))
+		snprintf(state.message, sizeof(state.message), "Open http://192.168.5.1");
+	else
+		snprintf(state.message, sizeof(state.message), "%u network(s); portal ready", state.wifi_count);
 	return 0;
 }
 
@@ -326,14 +371,40 @@ static int provision(const char *ssid, const char *password, const char *epoch_t
 static void http_reply(int client, const char *status, const char *body)
 {
 	char header[256];
-	int length = snprintf(header, sizeof(header), "HTTP/1.1 %s\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: %zu\r\nConnection: close\r\n\r\n", status, strlen(body));
+	int length = snprintf(header, sizeof(header), "HTTP/1.1 %s\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nContent-Length: %zu\r\nConnection: close\r\n\r\n", status, strlen(body));
 	send(client, header, length, MSG_NOSIGNAL);
 	send(client, body, strlen(body), MSG_NOSIGNAL);
 }
 
+static void html_escape(const char *input, char *output, size_t size)
+{
+	size_t used = 0;
+
+	while (*input && used + 1 < size) {
+		const char *replacement = NULL;
+		size_t length;
+
+		switch (*input) {
+		case '&': replacement = "&amp;"; break;
+		case '<': replacement = "&lt;"; break;
+		case '>': replacement = "&gt;"; break;
+		case '"': replacement = "&quot;"; break;
+		case '\'': replacement = "&#39;"; break;
+		default: output[used++] = *input++; continue;
+		}
+		length = strlen(replacement);
+		if (used + length >= size)
+			break;
+		memcpy(output + used, replacement, length);
+		used += length;
+		input++;
+	}
+	output[used] = '\0';
+}
+
 static void serve_http(int listener)
 {
-	char request[4096], page[4096], networks[1600] = {0};
+	char request[4096], page[8192], networks[4096] = {0};
 	int client = accept4(listener, NULL, NULL, SOCK_CLOEXEC);
 	ssize_t got;
 	unsigned int i;
@@ -343,14 +414,16 @@ static void serve_http(int listener)
 	request[got] = '\0';
 	if (!strncmp(request, "POST ", 5)) {
 		char *body = strstr(request, "\r\n\r\n");
-		char ssid[64], password[80], epoch[32];
-		char copy1[2048], copy2[2048], copy3[2048];
+		char ssid[64], manual_ssid[64], password[80], epoch[32];
+		char copy1[2048], copy2[2048], copy3[2048], copy4[2048];
 		if (!body) { http_reply(client, "400 Bad Request", "Bad request"); close(client); return; }
 		body += 4;
-		snprintf(copy1, sizeof(copy1), "%s", body); snprintf(copy2, sizeof(copy2), "%s", body); snprintf(copy3, sizeof(copy3), "%s", body);
+		snprintf(copy1, sizeof(copy1), "%s", body); snprintf(copy2, sizeof(copy2), "%s", body); snprintf(copy3, sizeof(copy3), "%s", body); snprintf(copy4, sizeof(copy4), "%s", body);
 		form_value(copy1, "ssid", ssid, sizeof(ssid));
-		form_value(copy2, "password", password, sizeof(password));
-		form_value(copy3, "epoch", epoch, sizeof(epoch));
+		form_value(copy2, "manual_ssid", manual_ssid, sizeof(manual_ssid));
+		form_value(copy3, "password", password, sizeof(password));
+		form_value(copy4, "epoch", epoch, sizeof(epoch));
+		if (manual_ssid[0]) snprintf(ssid, sizeof(ssid), "%s", manual_ssid);
 		if (!provision(ssid, password, epoch))
 			http_reply(client, "200 OK", "<meta charset=utf-8><h1>连接成功</h1><p>设备正在切回 WiFi。</p>");
 		else
@@ -358,11 +431,14 @@ static void serve_http(int listener)
 		close(client); return;
 	}
 	for (i = 0; i < state.wifi_count; i++) {
-		char option[180];
-		snprintf(option, sizeof(option), "<option value=\"%s\">%s %ddBm</option>", state.wifi[i].ssid, state.wifi[i].ssid, state.wifi[i].signal);
+		char option[320], escaped[200];
+		html_escape(state.wifi[i].ssid, escaped, sizeof(escaped));
+		snprintf(option, sizeof(option), "<option value=\"%s\">%s · %ddBm · %s</option>", escaped, escaped, state.wifi[i].signal, state.wifi[i].secure ? "加密" : "开放");
 		strncat(networks, option, sizeof(networks) - strlen(networks) - 1);
 	}
-	snprintf(page, sizeof(page), "<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'><title>EINK OS 配网</title><style>body{font:18px sans-serif;max-width:32em;margin:2em auto;padding:0 1em}input,select,button{font:inherit;width:100%%;padding:.7em;margin:.4em 0;box-sizing:border-box}</style><h1>EINK OS 配网</h1><form method=post><label>WiFi 名称</label><input name=ssid list=n required maxlength=32><datalist id=n>%s</datalist><label>密码（开放网络留空）</label><input name=password type=password maxlength=63><input id=e name=epoch type=hidden><button>连接</button></form><script>e.value=Math.floor(Date.now()/1000)</script>", networks);
+	if (!state.wifi_count)
+		snprintf(networks, sizeof(networks), "<option value=\"\">未扫描到网络，请手动输入</option>");
+	snprintf(page, sizeof(page), "<!doctype html><html><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>EINK OS 配网</title><style>body{font:18px sans-serif;max-width:32em;margin:1.5em auto;padding:0 1em;color:#222}h1{font-size:1.5em}label{display:block;margin-top:.8em}input,select,button{font:inherit;width:100%%;padding:.75em;margin:.3em 0;box-sizing:border-box;border:1px solid #888;border-radius:.35em}button{background:#111;color:#fff;border:0;margin-top:1em}.hint{color:#666;font-size:.85em}</style></head><body><h1>EINK OS WiFi 配网</h1><p>已自动扫描附近网络，默认选择信号最强的 WiFi。</p><form method=post action=/><label>选择 WiFi</label><select name=ssid>%s</select><label>其他或隐藏网络</label><input name=manual_ssid maxlength=32 placeholder='可选，填写后优先使用'><label>WiFi 密码</label><input name=password type=password maxlength=63 placeholder='开放网络留空'><input id=e name=epoch type=hidden><button type=submit>连接设备</button></form><p class=hint>若手机没有自动弹出此页面，请访问 http://192.168.5.1</p><script>e.value=Math.floor(Date.now()/1000)</script></body></html>", networks);
 	http_reply(client, "200 OK", page);
 	close(client);
 }

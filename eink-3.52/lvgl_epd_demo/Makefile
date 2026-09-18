@@ -18,7 +18,7 @@ override LDFLAGS += -static
 endif
 
 APP_SRCS = main.c connect_client.c epd_disp.c input.c lunar.c reader.c settings.c system_stats.c tick.c time_state.c ui.c font_cjk_16.c
-CONNECT_SRCS = connectd.c time_state.c
+CONNECT_SRCS = connectd.c time_state.c wifi_results.c
 LVGL_SRCS  = $(wildcard $(LVGL_DIR)/src/core/*.c)
 LVGL_SRCS += $(wildcard $(LVGL_DIR)/src/draw/*.c)
 LVGL_SRCS += $(wildcard $(LVGL_DIR)/src/draw/sw/*.c)
@@ -44,10 +44,12 @@ test:
 	$(HOSTCC) -O2 -Wall -Wextra -I. tests/reader_test.c reader.c -o /tmp/eink-reader-test
 	$(HOSTCC) -O2 -Wall -Wextra -I. tests/protocol_test.c -o /tmp/eink-protocol-test
 	$(HOSTCC) -O2 -Wall -Wextra -I. tests/settings_test.c settings.c -o /tmp/eink-settings-test
+	$(HOSTCC) -O2 -Wall -Wextra -I. tests/wifi_results_test.c wifi_results.c -o /tmp/eink-wifi-results-test
 	/tmp/eink-lunar-test
 	/tmp/eink-reader-test
 	/tmp/eink-protocol-test
 	/tmp/eink-settings-test
+	/tmp/eink-wifi-results-test
 
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) $(LDFLAGS) -o $@

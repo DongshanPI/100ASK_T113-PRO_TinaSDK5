@@ -147,7 +147,7 @@ static void render_wifi(lv_obj_t *screen, unsigned int selection, const struct e
 		snprintf(timer, sizeof(timer), "%u:%02u", connect->portal_seconds_left / 60, connect->portal_seconds_left % 60);
 		label(screen, "热点", 10, 183, 45, &font_cjk_16, LV_TEXT_ALIGN_LEFT); label(screen, connect->portal_ssid, 56, 183, 174, &lv_font_montserrat_16, LV_TEXT_ALIGN_RIGHT);
 		label(screen, "密码", 10, 211, 45, &font_cjk_16, LV_TEXT_ALIGN_LEFT); label(screen, connect->portal_password, 56, 211, 174, &lv_font_montserrat_16, LV_TEXT_ALIGN_RIGHT);
-		label(screen, "192.168.5.1", 10, 239, 150, &lv_font_montserrat_16, LV_TEXT_ALIGN_LEFT); label(screen, timer, 160, 239, 70, &lv_font_montserrat_16, LV_TEXT_ALIGN_RIGHT);
+		label(screen, "未弹窗: 192.168.5.1", 10, 239, 165, &font_cjk_16, LV_TEXT_ALIGN_LEFT); label(screen, timer, 176, 239, 54, &lv_font_montserrat_16, LV_TEXT_ALIGN_RIGHT);
 	} else {
 		for (i = 0; i < connect->wifi_count && i < 4; i++) { char row[80]; snprintf(row, sizeof(row), "%s  %ddBm", connect->wifi[i].ssid, connect->wifi[i].signal); label(screen, row, 10, 184 + (int)i * 27, 220, &font_cjk_16, LV_TEXT_ALIGN_LEFT); }
 	}
