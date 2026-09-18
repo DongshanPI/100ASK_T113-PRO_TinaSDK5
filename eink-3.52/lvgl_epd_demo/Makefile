@@ -43,9 +43,11 @@ test:
 	$(HOSTCC) -O2 -Wall -Wextra -I. tests/lunar_test.c lunar.c -o /tmp/eink-lunar-test
 	$(HOSTCC) -O2 -Wall -Wextra -I. tests/reader_test.c reader.c -o /tmp/eink-reader-test
 	$(HOSTCC) -O2 -Wall -Wextra -I. tests/protocol_test.c -o /tmp/eink-protocol-test
+	$(HOSTCC) -O2 -Wall -Wextra -I. tests/settings_test.c settings.c -o /tmp/eink-settings-test
 	/tmp/eink-lunar-test
 	/tmp/eink-reader-test
 	/tmp/eink-protocol-test
+	/tmp/eink-settings-test
 
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) $(LDFLAGS) -o $@

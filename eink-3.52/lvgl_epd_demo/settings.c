@@ -12,10 +12,10 @@ void settings_defaults(struct dashboard_settings *settings)
 	settings->refresh_interval_sec = 60;
 	settings->full_refresh_every = 10;
 	settings->key_previous = KEY_VOLUMEUP;
-	settings->key_next = KEY_PAUSE;
-	settings->key_next_alt = KEY_VOLUMEDOWN;
-	settings->key_confirm = KEY_MODE;
-	settings->key_confirm_alt = KEY_ENTER;
+	settings->key_next = KEY_MODE;
+	settings->key_next_alt = KEY_ENTER;
+	settings->key_confirm = KEY_PAUSE;
+	settings->key_confirm_alt = KEY_VOLUMEDOWN;
 	settings->provision_timeout_sec = 300;
 	strcpy(settings->timezone, "CST-8");
 	strcpy(settings->time_state_path, EINK_DEFAULT_TIME_STATE);
@@ -66,13 +66,13 @@ int settings_load(struct dashboard_settings *settings, const char *path)
 		else if (!strcmp(key, "key_previous"))
 			settings->key_previous = bounded_uint(value, KEY_VOLUMEUP, 1, KEY_MAX);
 		else if (!strcmp(key, "key_next"))
-			settings->key_next = bounded_uint(value, KEY_VOLUMEDOWN, 1, KEY_MAX);
+			settings->key_next = bounded_uint(value, KEY_MODE, 1, KEY_MAX);
 		else if (!strcmp(key, "key_next_alt"))
-			settings->key_next_alt = bounded_uint(value, KEY_PAUSE, 1, KEY_MAX);
+			settings->key_next_alt = bounded_uint(value, KEY_ENTER, 1, KEY_MAX);
 		else if (!strcmp(key, "key_confirm"))
-			settings->key_confirm = bounded_uint(value, KEY_ENTER, 1, KEY_MAX);
+			settings->key_confirm = bounded_uint(value, KEY_PAUSE, 1, KEY_MAX);
 		else if (!strcmp(key, "key_confirm_alt"))
-			settings->key_confirm_alt = bounded_uint(value, KEY_MODE, 1, KEY_MAX);
+			settings->key_confirm_alt = bounded_uint(value, KEY_VOLUMEDOWN, 1, KEY_MAX);
 		else if (!strcmp(key, "provision_timeout_sec"))
 			settings->provision_timeout_sec = bounded_uint(value, 300, 60, 1800);
 		else if (!strcmp(key, "timezone"))
