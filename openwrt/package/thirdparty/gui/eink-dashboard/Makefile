@@ -1,13 +1,18 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=eink-dashboard
-PKG_VERSION:=2.0.0
+PKG_VERSION:=0.1.0
 PKG_RELEASE:=1
-PKG_LICENSE:=MIT
-PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
-SRC_CODE_DIR:=$(LICHEE_TOP_DIR)/eink-3.52/lvgl_epd_demo
+PKG_LICENSE:=GPL-3.0-only
+PKG_LICENSE_FILES:=LICENSE
+PKG_SOURCE_VERSION:=087cbaf80cebcbc5d101d37ab3520b3c6fe461c5
+PKG_SOURCE:=$(PKG_SOURCE_VERSION).tar.gz
+PKG_SOURCE_URL:=https://github.com/dshanpi/EinkOS/archive/
+PKG_HASH:=654edf790410e2b4008b87389639e92c9185fc5aff8c1b6b6105b01cac374ef7
+PKG_BUILD_DIR:=$(BUILD_DIR)/EinkOS-$(PKG_SOURCE_VERSION)
+EINK_SOURCE_EPOCH:=1791620123
 TEST_CODE_DIR:=$(LICHEE_TOP_DIR)/eink-3.52/epd_test
-PKG_FILE_DEPENDS+=$(SRC_CODE_DIR) $(TEST_CODE_DIR) $(LICHEE_TOP_DIR)/kernel/linux-5.4/include/uapi/linux/epd_100ask.h
+PKG_FILE_DEPENDS+=$(TEST_CODE_DIR) $(LICHEE_TOP_DIR)/kernel/linux-5.4/include/uapi/linux/epd_100ask.h
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -15,59 +20,38 @@ define Package/eink-dashboard
   SECTION:=gui
   CATEGORY:=Gui
   SUBMENU:=Littlevgl
-  TITLE:=240x360 E-Ink desktop OS shell
+  TITLE:=EinkOS Linux e-paper desktop and applications
+  URL:=https://github.com/dshanpi/EinkOS
   DEPENDS:=+libpthread +iw +btmanager-v4.0 +bluez-daemon +bluez-utils +dnsmasq
 endef
 
 define Package/eink-dashboard/description
-  Bilingual LVGL desktop shell and system applications for the 100ASK 240x360 E-Ink panel.
-endef
-
-define Build/Prepare
-	$(INSTALL_DIR) $(PKG_BUILD_DIR)
-	$(CP) $(SRC_CODE_DIR)/* $(PKG_BUILD_DIR)/
-	$(CP) $(TEST_CODE_DIR)/epd_test.c $(PKG_BUILD_DIR)/
-endef
-
-define Build/Configure
-endef
-
-define Build/Compile
-	$(MAKE) -C $(PKG_BUILD_DIR) clean
-	$(MAKE) -C $(PKG_BUILD_DIR) \
-		CC="$(TARGET_CC)" \
-		SDK_BASE="$(LICHEE_TOP_DIR)" \
-		CFLAGS="$(TARGET_CFLAGS)" \
-		LDFLAGS="$(TARGET_LDFLAGS)" \
-		STAGING_DIR="$(STAGING_DIR)" \
-		STATIC=0 \
-		all
-	$(TARGET_CC) $(TARGET_CFLAGS) \
-		-iquote $(LICHEE_TOP_DIR)/kernel/linux-5.4/include/uapi/linux \
-		$(PKG_BUILD_DIR)/epd_test.c -o $(PKG_BUILD_DIR)/epd-test \
-		$(TARGET_LDFLAGS)
+  EinkOS desktop and connection service, fetched from a pinned upstream commit.
+  Board drivers and epd-test remain in this hardware repository.
 endef
 
 define Package/eink-dashboard/conffiles
 /etc/eink-dashboard.conf
 endef
 
+define Build/Configure
+endef
+
+EINK_MAKE_ARGS = CC="$(TARGET_CC)" CFLAGS="$(TARGET_CFLAGS)" \
+  LDFLAGS="$(TARGET_LDFLAGS)" BT_INCLUDE_DIR="$(STAGING_DIR)/usr/include" \
+  PLATFORM=tina STATIC=0 COMMIT="$(PKG_SOURCE_VERSION)" \
+  SOURCE_DATE_EPOCH="$(EINK_SOURCE_EPOCH)"
+
+define Build/Compile
+	$(MAKE) -C $(PKG_BUILD_DIR) $(EINK_MAKE_ARGS) all
+	$(TARGET_CC) $(TARGET_CFLAGS) \
+		-iquote $(LICHEE_TOP_DIR)/kernel/linux-5.4/include/uapi/linux \
+		$(TEST_CODE_DIR)/epd_test.c -o $(PKG_BUILD_DIR)/epd-test $(TARGET_LDFLAGS)
+endef
+
 define Package/eink-dashboard/install
-	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/eink-dashboard $(1)/usr/bin/eink-dashboard
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/eink-connectd $(1)/usr/bin/eink-connectd
+	$(MAKE) -C $(PKG_BUILD_DIR) $(EINK_MAKE_ARGS) DESTDIR="$(1)" install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/epd-test $(1)/usr/bin/epd-test
-	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) ./files/eink-dashboard.init $(1)/etc/init.d/eink-dashboard
-	$(INSTALL_BIN) ./files/eink-connectd.init $(1)/etc/init.d/eink-connectd
-	$(INSTALL_DIR) $(1)/etc
-	$(INSTALL_CONF) ./files/eink-dashboard.conf $(1)/etc/eink-dashboard.conf
-	$(INSTALL_DIR) $(1)/etc/eink-os
-	$(INSTALL_DIR) $(1)/usr/share/licenses/eink-dashboard
-	$(INSTALL_DATA) ./files/THIRD_PARTY_NOTICES $(1)/usr/share/licenses/eink-dashboard/
-	$(INSTALL_DATA) ./files/OFL-1.1.txt $(1)/usr/share/licenses/eink-dashboard/
-	$(INSTALL_DIR) $(1)/usr/share/eink-os/books
-	$(INSTALL_DATA) ./files/welcome.txt $(1)/usr/share/eink-os/books/
 endef
 
 $(eval $(call BuildPackage,eink-dashboard))

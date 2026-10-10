@@ -1,4 +1,10 @@
-# 100ASK T113-PRO 240×360 E-Ink OS
+# 100ASK T113-PRO EinkOS 硬件支持与系统集成
+
+> **应用已独立维护：** [dshanpi/EinkOS](https://github.com/dshanpi/EinkOS)。
+> 本仓库继续维护驱动、设备树、启动固件和板级系统构建；OpenWrt 包按固定提交
+> 和 SHA-256 获取应用源码。系统镜像在 [EinkOS Releases](https://github.com/dshanpi/EinkOS/releases)
+> 发布，安装统一使用 [LYNX](https://github.com/dshanpi/lynx-releases)。
+> 源码迁移前的版本可通过 Git 历史访问，不再维护应用副本。
 
 这是面向 **100ASK T113-PRO** 的 TinaSDK 5.0 源码覆盖层，在
 `tina5v1p2-xr829` 基线上加入 3.52 英寸、240×360 单色墨水屏驱动和
@@ -118,8 +124,9 @@ out/t113_linux_evb1_auto_nand_uart0.img
 也可以单独交叉编译用户态程序：
 
 ```bash
-make -C eink-3.52/lvgl_epd_demo clean all
-make -C eink-3.52/lvgl_epd_demo test
+git clone https://github.com/dshanpi/EinkOS.git
+# 应用交叉编译参数见 EinkOS/docs/BUILD.md
+make -C EinkOS test
 make -C eink-3.52/epd_test clean all
 ```
 
@@ -250,7 +257,7 @@ RC RTC 不能替代可靠的电池 RTC，因此生产硬件仍建议提供稳定
 | --- | --- |
 | `kernel/linux-5.4/drivers/misc/epd_100ask/` | 240×360 内核驱动 |
 | `kernel/linux-5.4/include/uapi/linux/epd_100ask.h` | 用户态 ioctl 接口 |
-| `eink-3.52/lvgl_epd_demo/` | E-Ink OS 桌面源码 |
+| [dshanpi/EinkOS](https://github.com/dshanpi/EinkOS) | 独立维护的应用源码 |
 | `eink-3.52/epd_test/` | 墨水屏测试程序 |
 | `openwrt/package/thirdparty/gui/eink-dashboard/` | OpenWrt 软件包和启动服务 |
 | `device/config/chips/t113/configs/evb1_auto_nand/` | 内核配置和设备树 |
@@ -293,8 +300,13 @@ CPU，因此不能简单删除 OP-TEE，否则内核会在 `psci: probing for co
 驱动要求 240×360、1 bpp、MSB first，白色位为 1、黑色位为 0。每次
 `write()` 必须正好写入 10800 字节。
 
-## 许可证
+## 应用版本升级与许可证
 
-内核驱动采用 GPL-2.0-only。E-Ink OS 应用及第三方字体的许可证和声明见
-[THIRD_PARTY_NOTICES](openwrt/package/thirdparty/gui/eink-dashboard/files/THIRD_PARTY_NOTICES)
-和 [OFL-1.1](openwrt/package/thirdparty/gui/eink-dashboard/files/OFL-1.1.txt)。
+`openwrt/package/thirdparty/gui/eink-dashboard/Makefile` 固定应用版本、完整提交、
+归档 SHA-256 和源码时间。升级时同时更新这些字段，重新构建并打包；不要跟踪浮动分支。
+删除历史应用目录不会影响新包构建，应用运行配置和服务脚本随应用源码安装。
+
+EPD 驱动保留 GPL-2.0-only；应用独立版本采用 GPL-3.0-only，LVGL 和字体保留
+各自许可证。参见 [应用第三方声明](https://github.com/dshanpi/EinkOS/blob/main/THIRD_PARTY_NOTICES)。
+系统镜像的完整对应源码和厂商组件说明见
+[系统源码说明](https://github.com/dshanpi/EinkOS/blob/main/docs/SOURCES.md)。
