@@ -13,6 +13,27 @@ E-Ink OS 桌面应用。
 本仓库不是完整 TinaSDK。仓库目录与 SDK 根目录保持一致，clone 后将文件
 覆盖到 TinaSDK 根目录即可编译出包含墨水屏支持的系统镜像。
 
+## 与 EinkOS Release 的固定对应关系
+
+| 项目 | v0.1.0 镜像实际使用的版本 |
+| --- | --- |
+| 本仓库开发分支 | `einkos-240x360` |
+| 本仓库固定标签 | [`einkos-v0.1.0`](https://github.com/DongshanPI/100ASK_T113-PRO_TinaSDK5/tree/einkos-v0.1.0) |
+| 本仓库固定提交 | `d24ebd7af24d4b07b0912b19f06a6dad22123eb5` |
+| EinkOS 应用标签 | [`v0.1.0`](https://github.com/dshanpi/EinkOS/tree/v0.1.0) |
+| EinkOS 应用提交 | `087cbaf80cebcbc5d101d37ab3520b3c6fe461c5` |
+| SDK | TinaSDK 5.0 v1.2；[122 个组件的精确提交](https://github.com/dshanpi/EinkOS/blob/main/releases/v0.1.0-sdk.json) |
+| 配置 | `t113 / evb1_auto_nand / linux-5.4 / openwrt` |
+
+本分支可以继续更新，但旧镜像必须使用固定标签/提交。复现 v0.1.0 时用
+`git clone --branch einkos-v0.1.0`，而不是本页下方用于日常开发的分支 clone 命令。
+应用和硬件的提交号不同是正常的：本仓库固定版本中的包配方必须引用同一应用提交。
+
+[版本锁定文件](https://github.com/dshanpi/EinkOS/blob/main/releases/v0.1.0.json) 将应用、
+硬件、SDK 清单和镜像 SHA-256 关联；Release 附带相同的 `release-lock.json`。
+[完整关联及门禁说明](https://github.com/dshanpi/EinkOS/blob/main/docs/VERSIONS.md)。
+SDK 的已记录本地修改尚需补齐补丁/源码证据，当前镜像仍是草稿，不能宣称已完整复现或实机验收。
+
 ## 已实现功能
 
 - Linux 5.4 SPI 墨水屏驱动，设备节点为 `/dev/epd_100ask`
@@ -25,7 +46,7 @@ E-Ink OS 桌面应用。
 - UTF-8/GB18030 TXT 阅读器，两层目录扫描、断点续读、书签和按字宽分页
 - 手机 Wi-Fi 配网：设备热点、内置网页、浏览器校时、失败/超时自动恢复 STA
 - 通用蓝牙设备扫描、配对确认、连接、断开和移除；无蓝牙硬件时不影响桌面启动
-- 独立 `eink-connectd` 连接服务与版本化本地协议，网络操作不会阻塞桌面进程
+- 独立 `eink-connectd` 连接服务与版本化本地协议；当前同步 IPC 仍可能阻塞桌面等待
 - 断电时间恢复、联网 NTP 校时、周期刷新和每 10 次局刷自动全刷
 - OpenWrt 软件包、两个 procd 开机服务和墨水屏测试工具
 - 兼容未烧录 HUK 的非安全启动板，同时保留 Linux SMP 所需的 OP-TEE PSCI/SMC 服务
@@ -259,7 +280,7 @@ RC RTC 不能替代可靠的电池 RTC，因此生产硬件仍建议提供稳定
 | `kernel/linux-5.4/include/uapi/linux/epd_100ask.h` | 用户态 ioctl 接口 |
 | [dshanpi/EinkOS](https://github.com/dshanpi/EinkOS) | 独立维护的应用源码 |
 | `eink-3.52/epd_test/` | 墨水屏测试程序 |
-| `openwrt/package/thirdparty/gui/eink-dashboard/` | OpenWrt 软件包和启动服务 |
+| `openwrt/package/thirdparty/gui/eink-dashboard/` | OpenWrt 包配方，应用启动服务随 EinkOS 源码安装 |
 | `device/config/chips/t113/configs/evb1_auto_nand/` | 内核配置和设备树 |
 
 更详细的引脚分析、驱动接口和排障流程请阅读：
