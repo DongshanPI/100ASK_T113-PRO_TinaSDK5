@@ -13,6 +13,10 @@ E-Ink OS 桌面应用。
 本仓库不是完整 TinaSDK。仓库目录与 SDK 根目录保持一致，clone 后将文件
 覆盖到 TinaSDK 根目录即可编译出包含墨水屏支持的系统镜像。
 
+后续 Linux 板卡的统一开源、版本关联和发布要求见
+[DSP-LINUX-001 / 1.0.0](https://github.com/dshanpi/EinkOS/tree/main/standards/linux-board-release)。
+该规范提供新板配置、SDK/发布记录模板和验收流程；本仓库已有版本仍保持原始构建与验证记录。
+
 ## 与 EinkOS Release 的固定对应关系
 
 | 项目 | v0.1.0 镜像实际使用的版本 |
