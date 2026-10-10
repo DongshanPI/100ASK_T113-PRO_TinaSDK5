@@ -14,8 +14,13 @@ E-Ink OS 桌面应用。
 覆盖到 TinaSDK 根目录即可编译出包含墨水屏支持的系统镜像。
 
 后续 Linux 板卡的统一开源、版本关联和发布要求见
-[DSP-LINUX-001 / 1.0.0](https://github.com/dshanpi/EinkOS/tree/main/standards/linux-board-release)。
+[DSP-LINUX-001 / 1.1.0](https://github.com/dshanpi/EinkOS/tree/main/standards/linux-board-release)。
 该规范提供新板配置、SDK/发布记录模板和验收流程；本仓库已有版本仍保持原始构建与验证记录。
+
+EinkOS 的兼容应用更新在应用仓库独立发布，不要求本仓库产生新提交或重新构建系统镜像。
+只有底层接口、驱动、启动或基础环境变化才发布新的系统镜像；原镜像的预装应用记录保持不变。
+[双发布线及应用更新门禁](https://github.com/dshanpi/EinkOS/blob/main/standards/linux-board-release/v1.1.0/SPEC.md)
+要求兼容性、可信校验、事务恢复、失败回退和用户数据保护；当前应用更新器仍待实现。
 
 ## 与 EinkOS Release 的固定对应关系
 
